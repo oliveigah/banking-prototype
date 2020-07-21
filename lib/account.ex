@@ -1,6 +1,8 @@
 defmodule Account do
   @moduledoc """
     Pure functional module that manages `Account`
+
+    All events except `refunds` that are denied or done, will be saved on the operations data structure. Refunds are registered only if suceed.
   """
   @refundable_operations [:card_transaction]
 
@@ -65,6 +67,7 @@ defmodule Account do
   @doc """
   Register an event of withdraw and update de balance
 
+  - The operation is registered on account's operations either if it is `:denied` or `:ok`
   ## Examples
       iex> init_state = %{balance: 1000, limit: -999}
       iex> init_account = Account.new(init_state)
@@ -96,7 +99,14 @@ defmodule Account do
 
       {:ok, new_account}
     else
-      {:denied, "No funds", account}
+      operation =
+        Operation.new(
+          :withdraw,
+          Map.put(data, :message, "No funds"),
+          %{status: :denied}
+        )
+
+      {:denied, "No funds", register_operation(account, operation)}
     end
   end
 
@@ -138,6 +148,8 @@ defmodule Account do
   @doc """
   Register an event of transfer out and update de balance
 
+  - The operation is registered on account's operations either if it is `:denied` or `:ok`
+
   ## Examples
       iex> init_state = %{balance: 1000, limit: -999}
       iex> init_account = Account.new(init_state)
@@ -172,7 +184,10 @@ defmodule Account do
 
       {:ok, new_account}
     else
-      {:denied, "No funds", account}
+      operation =
+        Operation.new(:transfer_out, Map.put(data, :message, "No funds"), %{status: :denied})
+
+      {:denied, "No funds", register_operation(account, operation)}
     end
   end
 
@@ -218,6 +233,8 @@ defmodule Account do
   @doc """
   Register an event of card transaction and update de balance
 
+  - The operation is registered on account's operations either if it is `:denied` or `:ok`
+
   ## Examples
       iex> init_state = %{balance: 1000, limit: -999}
       iex> init_account = Account.new(init_state)
@@ -249,7 +266,10 @@ defmodule Account do
 
       {:ok, new_account}
     else
-      {:denied, "No funds", account}
+      operation =
+        Operation.new(:card_transaction, Map.put(data, :message, "No funds"), %{status: :denied})
+
+      {:denied, "No funds", register_operation(account, operation)}
     end
   end
 
@@ -259,6 +279,8 @@ defmodule Account do
           | {:error, String.t(), Account.t()}
   @doc """
   Register an event of refund and update de balance
+
+  - The operation is registered on account's operations onlf if it is `:ok`
 
   ## Examples
       iex> init_state = %{balance: 1000, limit: -999}
@@ -271,7 +293,7 @@ defmodule Account do
       iex> init_state = %{balance: 1000, limit: -999}
       iex> init_account = Account.new(init_state)
       iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700})
-      iex> {:denied, message, _} = Account.refund(new_account, %{operation_to_refund_id: 1})
+      iex> {:error, message, _} = Account.refund(new_account, %{operation_to_refund_id: 1})
       iex> message
       "Unrefundable operation"
 
@@ -300,11 +322,36 @@ defmodule Account do
 
           {:ok, new_account}
         else
-          {:denied, "Unrefundable operation", account}
+          {:error, "Unrefundable operation", account}
         end
 
       :error ->
         {:error, "Operation do not exists", account}
     end
+  end
+
+  @spec balance(Account.t()) :: any
+  def balance(%Account{} = account) do
+    account.balance
+  end
+
+  def operations(%Account{} = account, date) do
+    account.operations
+    |> Stream.filter(fn {_, operation} -> DateTime.to_date(operation.date_time) == date end)
+    |> Enum.map(fn {_, operation} -> operation end)
+  end
+
+  defp is_date_between(date, date_ini, date_fin) do
+    ini_diff = Date.diff(date, date_ini)
+    fin_diff = Date.diff(date, date_fin)
+    ini_diff >= 0 && fin_diff <= 0
+  end
+
+  def operations(%Account{} = account, ini_date, fin_date) do
+    account.operations
+    |> Stream.filter(fn {_, operation} ->
+      is_date_between(DateTime.to_date(operation.date_time), ini_date, fin_date)
+    end)
+    |> Enum.map(fn {_, operation} -> operation end)
   end
 end
