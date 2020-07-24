@@ -31,6 +31,9 @@ defmodule Account do
       iex> Account.new()
       %Account{balance: 0, limit: -500, operations: %{}, operations_auto_id: 1}
 
+      iex> Account.new(nil)
+      %Account{balance: 0, limit: -500, operations: %{}, operations_auto_id: 1}
+
       iex> entry_map = %{balance: 1000, limit: -999}
       iex> Account.new(entry_map)
       %Account{balance: 1000, limit: -999, operations: %{}, operations_auto_id: 1}
@@ -39,16 +42,23 @@ defmodule Account do
     %Account{}
   end
 
-  @spec new(%{balance: integer(), limit: integer()}) :: Account.t()
-  def new(%{balance: balance, limit: limit}) do
-    %Account{
-      balance: balance,
-      limit: limit
-    }
+  def new(nil) do
+    %Account{}
   end
 
-  defp is_refundable(operation_type) do
-    Enum.find(@refundable_operations, nil, fn type -> type == operation_type end) !== nil
+  @spec new(map()) :: Account.t()
+  def new(%{} = args) do
+    new_account = %Account{}
+    Map.merge(new_account, args)
+  end
+
+  defp is_refundable(%Operation{} = operation) do
+    is_card_operation =
+      Enum.find(@refundable_operations, nil, fn type -> type == operation.type end) !== nil
+
+    is_done = operation.status === :done
+
+    is_card_operation && is_done
   end
 
   defp register_operation(%Account{} = account, %Operation{} = new_operation) do
@@ -68,6 +78,7 @@ defmodule Account do
   Register an event of withdraw and update de balance
 
   - The operation is registered on account's operations either if it is `:denied` or `:ok`
+
   ## Examples
       iex> init_state = %{balance: 1000, limit: -999}
       iex> init_account = Account.new(init_state)
@@ -275,7 +286,6 @@ defmodule Account do
 
   @spec refund(Account.t(), %{operation_to_refund_id: any}) ::
           {:ok, Account.t()}
-          | {:denied, String.t(), Account.t()}
           | {:error, String.t(), Account.t()}
   @doc """
   Register an event of refund and update de balance
@@ -310,7 +320,7 @@ defmodule Account do
       ) do
     case Map.fetch(account.operations, operation_to_refund_id) do
       {:ok, operation_to_refund} ->
-        if is_refundable(operation_to_refund.type) do
+        if is_refundable(operation_to_refund) do
           new_account =
             %Account{account | balance: account.balance + operation_to_refund.data.amount}
             |> register_operation(
@@ -330,11 +340,45 @@ defmodule Account do
     end
   end
 
-  @spec balance(Account.t()) :: any
+  @doc """
+  Get the current balance of the account
+
+  ## Examples
+      iex> init_state = %{balance: 1000}
+      iex> init_account = Account.new(init_state)
+      iex> Account.balance(init_account)
+      1000
+  """
+  @spec balance(Account.t()) :: number()
   def balance(%Account{} = account) do
     account.balance
   end
 
+  @doc """
+  Get all the operations that happen on a given date
+
+  ## Examples
+      iex> init_state = %{balance: 1000}
+      iex> init_account = Account.new(init_state)
+      iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700})
+      iex> oop_list = Account.operations(new_account, Date.utc_today())
+      iex> match?([
+      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done}
+      ...> ], oop_list)
+      true
+
+      iex> init_state = %{balance: 1000}
+      iex> init_account = Account.new(init_state)
+      iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700})
+      iex> {:denied, _, new_account} = Account.withdraw(new_account, %{amount: 1300})
+      iex> oop_list = Account.operations(new_account, Date.utc_today())
+      iex> match?([
+      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done},
+      ...>  %Operation{type: :withdraw, data: %{amount: 1300}, status: :denied}
+      ...> ], oop_list)
+      true
+  """
+  @spec operations(Account.t(), Date.t()) :: [Operation.t()]
   def operations(%Account{} = account, date) do
     account.operations
     |> Stream.filter(fn {_, operation} -> DateTime.to_date(operation.date_time) == date end)
@@ -347,6 +391,14 @@ defmodule Account do
     ini_diff >= 0 && fin_diff <= 0
   end
 
+  @doc """
+  Get all the operations that happen between 2 dates
+
+  TODO: Change the code to this function be testable
+
+  ## Examples
+  """
+  @spec operations(Account.t(), Date.t(), Date.t()) :: [Operation.t()]
   def operations(%Account{} = account, ini_date, fin_date) do
     account.operations
     |> Stream.filter(fn {_, operation} ->

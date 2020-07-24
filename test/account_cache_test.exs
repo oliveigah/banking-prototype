@@ -1,6 +1,8 @@
 defmodule AccountCacheTest do
   use ExUnit.Case
 
+  doctest Account.Cache
+
   test "account server process" do
     {:ok, server} = Account.Cache.start()
     bob_account_pid = Account.Cache.account_server_process(server, 1)
