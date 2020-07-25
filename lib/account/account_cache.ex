@@ -7,6 +7,7 @@ defmodule Account.Cache do
   use GenServer
 
   def init(_) do
+    Account.Database.start()
     {:ok, %{}}
   end
 
@@ -29,7 +30,7 @@ defmodule Account.Cache do
         {:reply, account_server, current_state}
 
       :error ->
-        {:ok, new_account_server} = Account.Server.start()
+        {:ok, new_account_server} = Account.Server.start(%{id: account_id})
 
         {
           :reply,

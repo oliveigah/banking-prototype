@@ -6,6 +6,7 @@ defmodule Account.Server do
     - Results of types like `:error` will NOT BE registered on the `Account` operations list
 
     TODO: Implement data persistance to keep track of the account's data even when the process stop
+          - Where and when execute the persistancy?
     TODO: Define a way to interact with the `recipient_id` and `sender_id` in a proper way:
           - Separate trustfull caller module ?
           - send message directly to other `Account.Server` processes within this module ?
@@ -14,10 +15,13 @@ defmodule Account.Server do
 
   @impl GenServer
   def init(args) do
-    {:ok, Account.new(args)}
+    case Account.Database.get(Map.get(args, :id)) do
+      nil -> {:ok, Account.new(args)}
+      data -> {:ok, data}
+    end
   end
 
-  @spec start :: :ignore | {:error, any} | {:ok, pid}
+  @spec start(%{id: number}) :: :ignore | {:error, any} | {:ok, pid}
   @doc """
   Start the `Account.Server` server
 
@@ -26,15 +30,15 @@ defmodule Account.Server do
   TODO: Implement data persistance to keep track of the account's data even when the process stop
 
   ## Examples
-      iex> {:ok, server_pid} = Account.Server.start()
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1})
       iex> is_pid(server_pid)
       true
 
-      iex> {:ok, server_pid} = Account.Server.start(%{balance: 5000, limit: -1000})
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 5000, limit: -1000})
       iex> Account.Server.balance(server_pid)
       5000
   """
-  def start(args \\ nil) do
+  def start(%{id: _account_id} = args) do
     GenServer.start(Account.Server, args)
   end
 
@@ -46,11 +50,11 @@ defmodule Account.Server do
   - Failure: {:denied, reason, current_balance}
 
   ## Examples
-      iex> {:ok, server_pid} = Account.Server.start(%{balance: 3000})
-      iex> Account.Server.withdraw(server_pid, %{amount: 2000})
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 3000})
+      iex> Account.Server.withdraw(server_pid, %{id: 1, amount: 2000})
       {:ok, 1000}
 
-      iex> {:ok, server_pid} = Account.Server.start(%{balance: 500})
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 500})
       iex> Account.Server.withdraw(server_pid, %{amount: 2000})
       {:denied, "No funds", 500}
   """
@@ -65,7 +69,7 @@ defmodule Account.Server do
   - Sucess: {:ok, new_balance}
 
   ## Examples
-      iex> {:ok, server_pid} = Account.Server.start(%{balance: 3000})
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 3000})
       iex> Account.Server.deposit(server_pid, %{amount: 2000})
       {:ok, 5000}
   """
@@ -80,7 +84,7 @@ defmodule Account.Server do
   - Sucess: {:ok, new_balance}
 
   ## Examples
-      iex> {:ok, server_pid} = Account.Server.start(%{balance: 3000})
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 3000})
       iex> Account.Server.transfer_in(server_pid, %{amount: 2000, sender_account_id: 1})
       {:ok, 5000}
   """
@@ -101,11 +105,11 @@ defmodule Account.Server do
       - send message directly to other `Account.Server` processes within this module ?
 
   ## Examples
-      iex> {:ok, server_pid} = Account.Server.start(%{balance: 3000})
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 3000})
       iex> Account.Server.transfer_out(server_pid, %{amount: 2000, recipient_account_id: 1})
       {:ok, 1000}
 
-      iex> {:ok, server_pid} = Account.Server.start(%{balance: 500})
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 500})
       iex> Account.Server.transfer_out(server_pid, %{amount: 2000, recipient_account_id: 1})
       {:denied, "No funds", 500}
   """
@@ -122,11 +126,11 @@ defmodule Account.Server do
   - Failure: {:denied, reason, current_balance}
 
   ## Examples
-      iex> {:ok, server_pid} = Account.Server.start(%{balance: 3000})
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 3000})
       iex> Account.Server.card_transaction(server_pid, %{amount: 2000, card_id: 1})
       {:ok, 1000}
 
-      iex> {:ok, server_pid} = Account.Server.start(%{balance: 500})
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 500})
       iex> Account.Server.card_transaction(server_pid, %{amount: 2000, card_id: 1})
       {:denied, "No funds", 500}
   """
@@ -143,22 +147,22 @@ defmodule Account.Server do
   - Failure: {:error, reason, current_balance}
 
   ## Examples
-      iex> {:ok, server_pid} = Account.Server.start(%{balance: 3000})
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 3000})
       iex> Account.Server.card_transaction(server_pid, %{amount: 2000, card_id: 1})
       iex> Account.Server.refund(server_pid, %{operation_to_refund_id: 1})
       {:ok, 3000}
 
-      iex> {:ok, server_pid} = Account.Server.start(%{balance: 3000})
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 3000})
       iex> Account.Server.card_transaction(server_pid, %{amount: 5000, card_id: 1})
       iex> Account.Server.refund(server_pid, %{operation_to_refund_id: 1})
       {:error,"Unrefundable operation", 3000}
 
-      iex> {:ok, server_pid} = Account.Server.start(%{balance: 3000})
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 3000})
       iex> Account.Server.withdraw(server_pid, %{amount: 2000})
       iex> Account.Server.refund(server_pid, %{operation_to_refund_id: 1})
       {:error,"Unrefundable operation", 1000}
 
-      iex> {:ok, server_pid} = Account.Server.start(%{balance: 3000})
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 3000})
       iex> Account.Server.refund(server_pid, %{operation_to_refund_id: 1})
       {:error,"Operation do not exists", 3000}
 
@@ -167,16 +171,103 @@ defmodule Account.Server do
     GenServer.call(account_server, {:refund, data})
   end
 
+  @spec balance(pid) :: any
+  @doc """
+  Get the current balance of the Account
+
+  ## Examples
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 3000})
+      iex> Account.Server.balance(server_pid)
+      3000
+  """
   def balance(account_server) do
     GenServer.call(account_server, :balance)
   end
 
-  def operations_date(account_server, date) do
+  @spec operations(pid, Date.t()) :: [Operation.t()]
+  @doc """
+  Get the list of operations that occur in a specific date
+
+  ## Examples
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1})
+      iex> Account.Server.operations(server_pid, ~D[2020-07-24])
+      []
+
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 2000})
+      iex> Account.Server.withdraw(server_pid, %{amount: 700, date_time: ~U[2020-07-24 10:00:00Z]})
+      iex> Account.Server.deposit(server_pid, %{amount: 1000, date_time: ~U[2020-07-24 10:00:00Z]})
+      iex> oop = Account.Server.operations(server_pid, ~D[2020-07-24])
+      iex> match?([
+      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done},
+      ...>  %Operation{type: :deposit, data: %{amount: 1000}, status: :done}
+      ...> ], oop)
+      true
+
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 2000})
+      iex> Account.Server.withdraw(server_pid, %{amount: 300, date_time: ~U[2020-07-23 10:00:00Z]})
+      iex> Account.Server.withdraw(server_pid, %{amount: 700, date_time: ~U[2020-07-24 10:00:00Z]})
+      iex> Account.Server.withdraw(server_pid, %{amount: 1900, date_time: ~U[2020-07-24 10:00:00Z]})
+      iex> oop = Account.Server.operations(server_pid, ~D[2020-07-24])
+      iex> match?([
+      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done},
+      ...>  %Operation{type: :withdraw, data: %{amount: 1900}, status: :denied}
+      ...> ], oop)
+      true
+  """
+  def operations(account_server, date) do
     GenServer.call(account_server, {:operations, date})
   end
 
-  def operations_between_dates(account_server, date_ini, date_fin) do
+  @spec operations(pid, Date.t(), Date.t()) :: any
+  @doc """
+  Get the list of operations that occur betweem 2 dates
+
+  ## Examples
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1})
+      iex> Account.Server.operations(server_pid, ~D[2020-07-24], ~D[2020-07-25])
+      []
+
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 2000})
+      iex> Account.Server.withdraw(server_pid, %{amount: 700, date_time: ~U[2020-07-24 10:00:00Z]})
+      iex> Account.Server.deposit(server_pid, %{amount: 1000, date_time: ~U[2020-07-25 10:00:00Z]})
+      iex> oop = Account.Server.operations(server_pid, ~D[2020-07-24], ~D[2020-07-25])
+      iex> match?([
+      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done},
+      ...>  %Operation{type: :deposit, data: %{amount: 1000}, status: :done}
+      ...> ], oop)
+      true
+
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 1, balance: 2000})
+      iex> Account.Server.withdraw(server_pid, %{amount: 300, date_time: ~U[2020-07-23 10:00:00Z]})
+      iex> Account.Server.withdraw(server_pid, %{amount: 700, date_time: ~U[2020-07-24 10:00:00Z]})
+      iex> Account.Server.withdraw(server_pid, %{amount: 1900, date_time: ~U[2020-07-25 10:00:00Z]})
+      iex> oop = Account.Server.operations(server_pid, ~D[2020-07-23], ~D[2020-07-24])
+      iex> match?([
+      ...>  %Operation{type: :withdraw, data: %{amount: 300}, status: :done},
+      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done}
+      ...> ], oop)
+      true
+  """
+  def operations(account_server, date_ini, date_fin) do
     GenServer.call(account_server, {:operations, date_ini, date_fin})
+  end
+
+  @spec account_id(pid) :: number()
+  @doc """
+  Get the account id of a specific account
+
+  ## Examples
+      iex> {:ok, server_pid} = Account.Server.start(%{id: 123})
+      iex> Account.Server.account_id(server_pid)
+      123
+  """
+  def account_id(account_server) do
+    GenServer.call(account_server, :account_id)
+  end
+
+  @impl GenServer
+  def handle_call(:account_id, _from, %Account{} = current_state) do
+    {:reply, Map.get(current_state, :id), current_state}
   end
 
   @impl GenServer

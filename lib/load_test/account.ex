@@ -4,10 +4,10 @@ defmodule Account.LoadTest do
   @moduledoc """
     Test module to execute a load test on the Account module
 
-    Premise: 55_000_000 active clients
-    Hypothese: Each 30 seconds 5% of the active clients make some kind of financial operation (transfer, deposit, withdraw, debit card, etc)
-    Hypothese: Just 10% of the clients make operations earlier than the cache expire time
-    Benchmark: Average response time for any request should be lower than 2 seconds
+    - Premise: 55_000_000 active clients
+    - Hypothese: Each 30 seconds 5% of the active clients make some kind of financial operation (transfer, deposit, withdraw, debit card, etc)
+    - Hypothese: Just 10% of the clients make a new operation earlier than the cache expire time
+    - Benchmark: Average response time for any request should be lower than 2 seconds
   """
 
   # 5% of the active clients

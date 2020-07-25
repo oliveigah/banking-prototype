@@ -113,8 +113,7 @@ defmodule Account do
       operation =
         Operation.new(
           :withdraw,
-          Map.put(data, :message, "No funds"),
-          %{status: :denied}
+          Map.merge(data, %{message: "No funds", status: :denied})
         )
 
       {:denied, "No funds", register_operation(account, operation)}
@@ -196,7 +195,7 @@ defmodule Account do
       {:ok, new_account}
     else
       operation =
-        Operation.new(:transfer_out, Map.put(data, :message, "No funds"), %{status: :denied})
+        Operation.new(:transfer_out, Map.merge(data, %{message: "No funds", status: :denied}))
 
       {:denied, "No funds", register_operation(account, operation)}
     end
@@ -278,7 +277,7 @@ defmodule Account do
       {:ok, new_account}
     else
       operation =
-        Operation.new(:card_transaction, Map.put(data, :message, "No funds"), %{status: :denied})
+        Operation.new(:card_transaction, Map.merge(data, %{message: "No funds", status: :denied}))
 
       {:denied, "No funds", register_operation(account, operation)}
     end
