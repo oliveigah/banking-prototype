@@ -4,8 +4,8 @@ defmodule Operation do
 
   By default, any operation initialize with status `:done`
 
-  If you want to chage the status of an operation you should pass it new value under the args parameter
-  eg: `Operation.new(:type, data, %{status: :new_status})`
+  If you want to chage the status of an operation you should pass it new value with the data parameter
+  eg: `Operation.new(:type, %{status: :new_status} )`
   """
 
   @typedoc """

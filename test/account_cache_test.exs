@@ -4,12 +4,11 @@ defmodule AccountCacheTest do
   doctest Account.Cache
 
   test "account server process" do
-    {:ok, server} = Account.Cache.start()
-    bob_account_pid = Account.Cache.account_server_process(server, 1)
-    alice_account_pid = Account.Cache.account_server_process(server, 2)
+    bob_account_pid = Account.Cache.server_process(1)
+    alice_account_pid = Account.Cache.server_process(2)
 
     assert bob_account_pid != alice_account_pid
-    assert bob_account_pid == Account.Cache.account_server_process(server, 1)
-    assert alice_account_pid == Account.Cache.account_server_process(server, 2)
+    assert bob_account_pid == Account.Cache.server_process(1)
+    assert alice_account_pid == Account.Cache.server_process(2)
   end
 end

@@ -359,8 +359,8 @@ defmodule Account do
   ## Examples
       iex> init_state = %{balance: 1000}
       iex> init_account = Account.new(init_state)
-      iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700})
-      iex> oop_list = Account.operations(new_account, Date.utc_today())
+      iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700, date_time: ~U[2020-07-24 10:00:00Z]})
+      iex> oop_list = Account.operations(new_account, ~D[2020-07-24])
       iex> match?([
       ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done}
       ...> ], oop_list)
@@ -368,9 +368,9 @@ defmodule Account do
 
       iex> init_state = %{balance: 1000}
       iex> init_account = Account.new(init_state)
-      iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700})
-      iex> {:denied, _, new_account} = Account.withdraw(new_account, %{amount: 1300})
-      iex> oop_list = Account.operations(new_account, Date.utc_today())
+      iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700, date_time: ~U[2020-07-24 10:00:00Z]})
+      iex> {:denied, _, new_account} = Account.withdraw(new_account, %{amount: 1300, date_time: ~U[2020-07-24 10:00:00Z]})
+      iex> oop_list = Account.operations(new_account, ~D[2020-07-24])
       iex> match?([
       ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done},
       ...>  %Operation{type: :withdraw, data: %{amount: 1300}, status: :denied}
