@@ -1,7 +1,11 @@
 defmodule Account.System do
   def start_link() do
     Supervisor.start_link(
-      [Account.ProcessRegistry, Account.Cache],
+      [
+        Account.ProcessRegistry,
+        Account.Cache,
+        Http.Account
+      ],
       strategy: :one_for_one,
       name: __MODULE__
     )

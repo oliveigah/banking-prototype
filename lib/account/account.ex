@@ -149,7 +149,7 @@ defmodule Account do
     new_account =
       %Account{account | balance: account.balance + amount}
       |> register_operation(Operation.new(:deposit, data))
-
+    
     {:ok, new_account}
   end
 

@@ -39,7 +39,8 @@ defmodule Banking.MixProject do
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
       {:ex_doc, "~> 0.22", only: :dev, runtime: false},
       {:cowboy, "~> 2.8"},
-      {:plug, "~> 1.10"}
+      {:plug_cowboy, "~> 2.3"},
+      {:poison, "~> 4.0"}
     ]
   end
 end
