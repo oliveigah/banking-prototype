@@ -17,9 +17,7 @@ defmodule AccountServerTest do
     Enum.each(accounts_used_pids, &Process.exit(&1, :clean_up))
 
     # Reset the "database"
-    File.rm_rf(Account.Database.folder_path())
-    File.mkdir_p!(Account.Database.folder_path())
-
+    File.rm_rf("./persist/")
     :ok
   end
 

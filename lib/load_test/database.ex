@@ -16,14 +16,14 @@ defmodule Database.LoadTest do
     run_write_test()
     |> run_read_test()
 
-    File.rm_rf("./persist")
+    File.rm_rf("./persist/accounts")
   end
 
   def run_write_test do
     init_time = Time.utc_now()
 
     try do
-      Enum.each(1..1_000_000, &loop_write(&1, init_time))
+      Enum.each(1..100_000_000, &loop_write(&1, init_time))
     catch
       index ->
         operations_per_sec = index / @seconds_to_measure
@@ -37,7 +37,7 @@ defmodule Database.LoadTest do
       throw(index)
     end
 
-    Account.Database.store_sync(index, Account.new())
+    Database.store_sync(index, Account.new(), "accounts")
   end
 
   def run_read_test(max_index) do
@@ -58,7 +58,8 @@ defmodule Database.LoadTest do
       throw({index, cycle})
     end
 
-    Account.Database.get(index)
+    acc = Database.get(index, "accounts")
+    IO.puts(inspect(acc))
     new_index = rem(index, max_index) + 1
     new_cycle = cycle + div(index, max_index)
 

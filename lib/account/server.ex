@@ -11,17 +11,13 @@ defmodule Account.Server do
   """
   use GenServer, restart: :temporary
 
+  @database_folder "accounts"
+  @idle_timeout :timer.seconds(240)
+
   @impl GenServer
   def init(%{id: account_id} = args) do
-    case Account.Database.get(account_id) do
-      nil ->
-        account = Account.new(args)
-        persist_data(account)
-        {:ok, account}
-
-      data ->
-        {:ok, data}
-    end
+    send(self(), {:real_init, account_id, args})
+    {:ok, nil}
   end
 
   @spec start_link(%{id: number}) :: :ignore | {:error, any} | {:ok, pid}
@@ -274,27 +270,27 @@ defmodule Account.Server do
   end
 
   defp persist_data(%Account{} = account_data) do
-    Account.Database.store_sync(Map.get(account_data, :id), account_data)
+    Database.store_sync(Map.get(account_data, :id), account_data, @database_folder)
   end
 
   @impl GenServer
   def handle_call(:account_id, _from, %Account{} = current_state) do
-    {:reply, Map.get(current_state, :id), current_state}
+    {:reply, Map.get(current_state, :id), current_state, @idle_timeout}
   end
 
   @impl GenServer
   def handle_call(:balance, _from, %Account{} = current_state) do
-    {:reply, Account.balance(current_state), current_state}
+    {:reply, Account.balance(current_state), current_state, @idle_timeout}
   end
 
   @impl GenServer
   def handle_call({:operations, date}, _from, %Account{} = current_state) do
-    {:reply, Account.operations(current_state, date), current_state}
+    {:reply, Account.operations(current_state, date), current_state, @idle_timeout}
   end
 
   @impl GenServer
   def handle_call({:operations, date_ini, date_fin}, _from, %Account{} = current_state) do
-    {:reply, Account.operations(current_state, date_ini, date_fin), current_state}
+    {:reply, Account.operations(current_state, date_ini, date_fin), current_state, @idle_timeout}
   end
 
   @impl GenServer
@@ -302,11 +298,11 @@ defmodule Account.Server do
     case Account.withdraw(current_state, data) do
       {:ok, new_state} ->
         persist_data(new_state)
-        {:reply, {:ok, new_state.balance}, new_state}
+        {:reply, {:ok, new_state.balance}, new_state, @idle_timeout}
 
       {:denied, reason, new_state} ->
         persist_data(new_state)
-        {:reply, {:denied, reason, new_state.balance}, new_state}
+        {:reply, {:denied, reason, new_state.balance}, new_state, @idle_timeout}
     end
   end
 
@@ -314,7 +310,7 @@ defmodule Account.Server do
   def handle_call({:deposit, %{amount: _amount} = data}, _from, %Account{} = current_state) do
     {:ok, new_state} = Account.deposit(current_state, data)
     persist_data(new_state)
-    {:reply, {:ok, new_state.balance}, new_state}
+    {:reply, {:ok, new_state.balance}, new_state, @idle_timeout}
   end
 
   @impl GenServer
@@ -325,7 +321,7 @@ defmodule Account.Server do
       ) do
     {:ok, new_state} = Account.transfer_in(current_state, data)
     persist_data(new_state)
-    {:reply, {:ok, new_state.balance}, new_state}
+    {:reply, {:ok, new_state.balance}, new_state, @idle_timeout}
   end
 
   @impl GenServer
@@ -337,11 +333,11 @@ defmodule Account.Server do
     case Account.transfer_out(current_state, data) do
       {:ok, new_state} ->
         persist_data(new_state)
-        {:reply, {:ok, new_state.balance}, new_state}
+        {:reply, {:ok, new_state.balance}, new_state, @idle_timeout}
 
       {:denied, reason, new_state} ->
         persist_data(new_state)
-        {:reply, {:denied, reason, new_state.balance}, new_state}
+        {:reply, {:denied, reason, new_state.balance}, new_state, @idle_timeout}
     end
   end
 
@@ -354,11 +350,11 @@ defmodule Account.Server do
     case Account.card_transaction(current_state, data) do
       {:ok, new_state} ->
         persist_data(new_state)
-        {:reply, {:ok, new_state.balance}, new_state}
+        {:reply, {:ok, new_state.balance}, new_state, @idle_timeout}
 
       {:denied, reason, new_state} ->
         persist_data(new_state)
-        {:reply, {:denied, reason, new_state.balance}, new_state}
+        {:reply, {:denied, reason, new_state.balance}, new_state, @idle_timeout}
     end
   end
 
@@ -371,10 +367,28 @@ defmodule Account.Server do
     case Account.refund(current_state, data) do
       {:ok, new_state} ->
         persist_data(new_state)
-        {:reply, {:ok, new_state.balance}, new_state}
+        {:reply, {:ok, new_state.balance}, new_state, @idle_timeout}
 
       {:error, reason, new_state} ->
-        {:reply, {:error, reason, new_state.balance}, new_state}
+        {:reply, {:error, reason, new_state.balance}, new_state, @idle_timeout}
     end
+  end
+
+  @impl GenServer
+  def handle_info({:real_init, account_id, args}, _state) do
+    case Database.get(account_id, @database_folder) do
+      nil ->
+        account = Account.new(args)
+        persist_data(account)
+        {:noreply, account, @idle_timeout}
+
+      data ->
+        {:noreply, data, @idle_timeout}
+    end
+  end
+
+  @impl GenServer
+  def handle_info(:timeout, %Account{} = state) do
+    {:stop, :normal, state}
   end
 end
