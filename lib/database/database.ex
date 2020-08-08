@@ -17,8 +17,10 @@ defmodule Database do
   def start_link() do
     IO.puts("Starting Database linked to #{inspect(self())}")
 
-    Enum.map(1..@workers_count, &worker_spec/1)
-    |> Supervisor.start_link(strategy: :one_for_one)
+    workers_spec_list = Enum.map(1..@workers_count, &worker_spec/1)
+
+    [Database.ProcessRegistry.child_spec(nil) | workers_spec_list]
+    |> Supervisor.start_link(strategy: :one_for_one, name: __MODULE__)
   end
 
   def child_spec(_) do
@@ -72,7 +74,7 @@ defmodule Database do
 
   @spec get(any(), String.t()) :: any() | nil
   @doc """
-  Get the persisted data of an Account
+  Get the persisted data
   """
   def get(key, folder) do
     final_folder = concatenate_folder(folder)

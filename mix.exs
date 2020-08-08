@@ -27,7 +27,8 @@ defmodule Banking.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger],
+      mod: {Banking.Application, []}
     ]
   end
 
@@ -36,7 +37,9 @@ defmodule Banking.MixProject do
     [
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
-      {:ex_doc, "~> 0.22", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.22", only: :dev, runtime: false},
+      {:cowboy, "~> 2.8"},
+      {:plug, "~> 1.10"}
     ]
   end
 end

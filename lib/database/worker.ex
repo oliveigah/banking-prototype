@@ -3,7 +3,7 @@ defmodule Database.Worker do
   use GenServer
 
   defp via_tuple(worker_id) do
-    Account.ProcessRegistry.via_tuple({__MODULE__, worker_id})
+    Database.ProcessRegistry.via_tuple({__MODULE__, worker_id})
   end
 
   @spec start_link({number(), String.t()}) :: :ignore | {:error, any} | {:ok, pid}

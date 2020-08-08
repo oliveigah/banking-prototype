@@ -1,7 +1,7 @@
-defmodule Account.System do
+defmodule Metrics.System do
   def start_link() do
     Supervisor.start_link(
-      [Account.ProcessRegistry, Account.Cache],
+      [Metrics.Scheduler],
       strategy: :one_for_one,
       name: __MODULE__
     )
