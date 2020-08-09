@@ -104,6 +104,25 @@ defmodule Account.Server do
     GenServer.call(account_server, {:transfer_out, data})
   end
 
+  @doc """
+  Transfer resources split between all recipients inside recipients data
+
+  ## Examples
+      iex> server_pid = Account.Cache.server_process(1, %{balance: 3000})
+      iex> Account.Server.transfer_out(server_pid, %{amount: 2000, recipient_account_id: 2})
+      {:ok, 1000, 1, 1}
+
+      iex> server_pid = Account.Cache.server_process(1, %{balance: 500})
+      iex> Account.Server.transfer_out(server_pid, %{amount: 2000, recipient_account_id: 2})
+      {:denied, "No funds", 500, 1}
+  """
+  def transfer_out(
+        account_server,
+        %{amount: _amount, recipients_data: [_, _]} = data
+      ) do
+    GenServer.call(account_server, {:transfer_out, data})
+  end
+
   @spec card_transaction(pid, %{amount: number, card_id: number}) ::
           {:ok, number, number} | {:denied, String.t(), number, number()}
   @doc """
@@ -257,10 +276,6 @@ defmodule Account.Server do
     Database.store_sync(Map.get(account_data, :id), account_data, @database_folder)
   end
 
-  defp operation_id(%Account{} = account_data) do
-    account_data.operations_auto_id - 1
-  end
-
   defp transfer_to_account(%{amount: amount} = data, sender_id, recipient_id) do
     transfer_data =
       Map.merge(data, %{
@@ -300,16 +315,16 @@ defmodule Account.Server do
   @impl GenServer
   def handle_call({:withdraw, %{amount: _amount} = data}, _from, %Account{} = current_state) do
     case Account.withdraw(current_state, data) do
-      {:ok, new_state} ->
+      {:ok, new_state, operation_data} ->
         persist_data(new_state)
-        {:reply, {:ok, new_state.balance, operation_id(new_state)}, new_state, @idle_timeout}
+        {:reply, {:ok, new_state.balance, operation_data}, new_state, @idle_timeout}
 
-      {:denied, reason, new_state} ->
+      {:denied, reason, new_state, operation_data} ->
         persist_data(new_state)
 
         {
           :reply,
-          {:denied, reason, new_state.balance, operation_id(new_state)},
+          {:denied, reason, new_state.balance, operation_data},
           new_state,
           @idle_timeout
         }
@@ -318,9 +333,9 @@ defmodule Account.Server do
 
   @impl GenServer
   def handle_call({:deposit, %{amount: _amount} = data}, _from, %Account{} = current_state) do
-    {:ok, new_state} = Account.deposit(current_state, data)
+    {:ok, new_state, operation_data} = Account.deposit(current_state, data)
     persist_data(new_state)
-    {:reply, {:ok, new_state.balance, operation_id(new_state)}, new_state, @idle_timeout}
+    {:reply, {:ok, new_state.balance, operation_data}, new_state, @idle_timeout}
   end
 
   @impl GenServer
@@ -329,9 +344,9 @@ defmodule Account.Server do
         _from,
         %Account{} = current_state
       ) do
-    {:ok, new_state} = Account.transfer_in(current_state, data)
+    {:ok, new_state, operation_data} = Account.transfer_in(current_state, data)
     persist_data(new_state)
-    {:reply, {:ok, new_state.balance, operation_id(new_state)}, new_state, @idle_timeout}
+    {:reply, {:ok, new_state.balance, operation_data}, new_state, @idle_timeout}
   end
 
   @impl GenServer
@@ -341,31 +356,74 @@ defmodule Account.Server do
         %Account{} = current_state
       ) do
     case Account.transfer_out(current_state, data) do
-      {:ok, new_state} ->
+      {:ok, new_state, operation_data} ->
         sender_id = Map.get(new_state, :id)
-        
-        {:ok, _, recipient_operation_id} = transfer_to_account(data, sender_id, recipient)
+
+        {:ok, _, recipient_operation_data} = transfer_to_account(data, sender_id, recipient)
 
         persist_data(new_state)
 
         {
           :reply,
-          {:ok, new_state.balance, operation_id(new_state), recipient_operation_id},
+          {:ok, new_state.balance, operation_data, recipient_operation_data},
           new_state,
           @idle_timeout
         }
 
-      {:denied, reason, new_state} ->
+      {:denied, reason, new_state, operation_data} ->
         persist_data(new_state)
 
         {
           :reply,
-          {:denied, reason, new_state.balance, operation_id(new_state)},
+          {:denied, reason, new_state.balance, operation_data},
           new_state,
           @idle_timeout
         }
     end
   end
+
+  # @impl GenServer
+  # def handle_call(
+  #       {:transfer_out, %{amount: _amount, recipients_data: [_, _] = recipients_data} = data},
+  #       _from,
+  #       %Account{} = current_state
+  #     ) do
+  #   case Account.transfer_out(current_state, data) do
+  #     {:ok, new_state} ->
+  #       sender_id = Map.get(new_state, :id)
+
+  #       transfer_in_results =
+  #         Enum.map(
+  #           recipients_data,
+  #           &transfer_to_account(&1, sender_id, Map.get(recipients_data, :recipient_account_id))
+  #         )
+
+  #       Enum.map(transfer_in_results, fn {:ok, _, recipient_operation_id} ->
+  #         %{recipient_operation_id: recipient_operation_id}
+  #       end)
+
+  #       {:ok, _, recipient_operation_id} = transfer_to_account(data, sender_id, recipient)
+
+  #       persist_data(new_state)
+
+  #       {
+  #         :reply,
+  #         {:ok, new_state.balance, operation_id(new_state), recipient_operation_id},
+  #         new_state,
+  #         @idle_timeout
+  #       }
+
+  #     {:denied, reason, new_state} ->
+  #       persist_data(new_state)
+
+  #       {
+  #         :reply,
+  #         {:denied, reason, new_state.balance, operation_id(new_state)},
+  #         new_state,
+  #         @idle_timeout
+  #       }
+  #   end
+  # end
 
   @impl GenServer
   def handle_call(
@@ -374,16 +432,16 @@ defmodule Account.Server do
         %Account{} = current_state
       ) do
     case Account.card_transaction(current_state, data) do
-      {:ok, new_state} ->
+      {:ok, new_state, operation_data} ->
         persist_data(new_state)
-        {:reply, {:ok, new_state.balance, operation_id(new_state)}, new_state, @idle_timeout}
+        {:reply, {:ok, new_state.balance, operation_data}, new_state, @idle_timeout}
 
-      {:denied, reason, new_state} ->
+      {:denied, reason, new_state, operation_data} ->
         persist_data(new_state)
 
         {
           :reply,
-          {:denied, reason, new_state.balance, operation_id(new_state)},
+          {:denied, reason, new_state.balance, operation_data},
           new_state,
           @idle_timeout
         }
@@ -397,9 +455,9 @@ defmodule Account.Server do
         %Account{} = current_state
       ) do
     case Account.refund(current_state, data) do
-      {:ok, new_state} ->
+      {:ok, new_state, operation_data} ->
         persist_data(new_state)
-        {:reply, {:ok, new_state.balance, operation_id(new_state)}, new_state, @idle_timeout}
+        {:reply, {:ok, new_state.balance, operation_data}, new_state, @idle_timeout}
 
       {:error, reason, new_state} ->
         {:reply, {:error, reason, new_state.balance}, new_state, @idle_timeout}

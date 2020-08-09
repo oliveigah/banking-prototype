@@ -29,19 +29,19 @@ defmodule Http.Account.Transfer do
 
   defp generate_http_response(operation_response) do
     case operation_response do
-      {:ok, new_balance, operation_id, recipient_operation_id} ->
+      {:ok, new_balance, operation_data, recipiet_operation_data} ->
         {201,
          %{
            success: true,
            response: %{
              approved: true,
              new_balance: new_balance,
-             operation_id: operation_id,
-             recipient_operation_id: recipient_operation_id
+             operation: operation_data,
+             recipient_operation_data: recipiet_operation_data
            }
          }}
 
-      {:denied, reason, balance, operation_id} ->
+      {:denied, reason, balance, operation_data} ->
         {
           201,
           %{
@@ -50,7 +50,7 @@ defmodule Http.Account.Transfer do
               approved: false,
               reason: reason,
               new_balance: balance,
-              operation_id: operation_id
+              operation_id: operation_data
             }
           }
         }

@@ -52,128 +52,74 @@ defmodule Account do
   end
 
   @spec withdraw(Account.t(), %{amount: number}) ::
-          {:ok, Account.t()} | {:denied, String.t(), Account.t()}
+          {:ok, Account.t(), Operation.t()} | {:denied, String.t(), Account.t(), Operation.t()}
   @doc """
   Register an event of withdraw and update de balance
 
   - The operation is registered on account's operations either if it is `:denied` or `:ok`
 
   ## Examples
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.withdraw(init_account, %{amount: 700})
-      iex> result.balance
-      300
 
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.withdraw(init_account, %{amount: 700})
-      iex> %{type: type, data: %{amount: amount}} = Map.get(result.operations, 1)
-      iex> {type, amount}
-      {:withdraw, 700}
+      iex> init_account = Account.new(%{balance: 1000})
+      iex> {
+      ...> :ok,
+      ...> %Account{balance: 300},
+      ...> %Operation{type: :withdraw, data: %{amount: 700}}
+      ...> } = Account.withdraw(init_account, %{amount: 700})
 
-      iex> init_state = %{balance: -950, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:denied, message, _} = Account.withdraw(init_account, %{amount: 50})
-      iex> message
-      "No funds"
+
+      iex> init_account = Account.new(%{balance: -500})
+      iex> {
+      ...> :denied,
+      ...> reason,
+      ...> %Account{balance: -500},
+      ...> %Operation{type: :withdraw, data: %{amount: 50}}
+      ...> } = Account.withdraw(init_account, %{amount: 50})
 
   """
   def withdraw(%Account{} = account, %{amount: amount} = data) do
     case remove_balance(account, amount) do
       {:ok, new_account} ->
         operation = Operation.new(:withdraw, data)
-        new_account = register_operation(new_account, operation)
-        {:ok, new_account}
+        {new_account, operation_data} = register_operation(new_account, operation)
+        {:ok, new_account, operation_data}
 
       {:denied, reason} ->
         operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
         operation = Operation.new(:withdraw, operation_custom_data)
-        new_account = register_operation(account, operation)
-        {:denied, reason, new_account}
+        {new_account, operation_data} = register_operation(account, operation)
+        {:denied, reason, new_account, operation_data}
     end
   end
 
-  @spec deposit(Account.t(), %{amount: pos_integer}) :: {:ok, Account.t()}
+  @spec deposit(Account.t(), %{amount: pos_integer}) :: {:ok, Account.t(), Operation.t()}
   @doc """
   Register an event of deposit and update de balance
 
   ## Examples
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.deposit(init_account, %{amount: 700})
-      iex> result.balance
-      1700
-
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.deposit(init_account, %{amount: 700})
-      iex> %{type: type, data: %{amount: amount}} = Map.get(result.operations, 1)
-      iex> {type, amount}
-      {:deposit, 700}
-
-      iex> init_state = %{balance: -1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.deposit(init_account, %{amount: 700})
-      iex> result.balance
-      -300
+      iex> init_account = Account.new()
+      iex> {
+      ...> :ok,
+      ...> %Account{balance: 700},
+      ...> %Operation{type: :deposit, data: %{amount: 700}}
+      ...> } = Account.deposit(init_account, %{amount: 700})
 
   """
   def deposit(%Account{} = account, %{amount: amount} = data) do
-    new_account =
+    {new_account, operation_data} =
       account
       |> add_balance(amount)
       |> register_operation(Operation.new(:deposit, data))
 
-    {:ok, new_account}
+    {:ok, new_account, operation_data}
   end
 
-  @spec transfer_out(Account.t(), %{amount: number, recipient_account_id: number}) ::
-          {:ok, Account.t()} | {:denied, String.t(), Account.t()}
-  @doc """
-  Register an event of transfer out and update the balance
-
-  - The operation is registered on account's operations either if it is `:denied` or `:ok`
-
-  ## Examples
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.transfer_out(init_account, %{amount: 700, recipient_account_id: 1})
-      iex> result.balance
-      300
-
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.transfer_out(init_account, %{amount: 700, recipient_account_id: 1})
-      iex> %{type: type, data: %{amount: amount}} = Map.get(result.operations, 1)
-      iex> {type, amount}
-      {:transfer_out, 700}
-
-      iex> init_state = %{balance: -950, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:denied, message, _} = Account.transfer_out(init_account, %{amount: 700, recipient_account_id: 1})
-      iex> message
-      "No funds"
-
-  """
-  def transfer_out(
-        %Account{} = account,
-        %{amount: amount, recipient_account_id: _recipient_account_id} = data
-      ) do
-    case remove_balance(account, amount) do
-      {:ok, new_account} ->
-        new_account = register_operation(new_account, Operation.new(:transfer_out, data))
-        {:ok, new_account}
-
-      {:denied, reason} ->
-        operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
-        operation = Operation.new(:transfer_out, operation_custom_data)
-        new_account = register_operation(account, operation)
-
-        {:denied, reason, new_account}
-    end
-  end
-
+  @spec transfer_out(
+          Account.t(),
+          %{amount: number, recipient_account_id: number}
+        ) ::
+          {:ok, Account.t(), Operation.t()}
+          | {:denied, String.t(), Account.t(), Operation.t()}
   @doc """
   Register an event of transfer for each data received on the list and update the balance
 
@@ -182,155 +128,166 @@ defmodule Account do
   - All the aditional data passed to data paramenter will be copied to each generated opertion
 
   ## Examples
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.transfer_out(init_account, %{amount: 700, recipient_account_id: 1})
-      iex> result.balance
-      300
+      iex> init_account = Account.new(%{balance: 1000})
+      iex> {
+      ...> :ok,
+      ...> %Account{balance: 300},
+      ...> %Operation{type: :transfer_out, data: %{amount: 700}}
+      ...> } = Account.transfer_out(init_account, %{amount: 700, recipient_account_id: 1})
 
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.transfer_out(init_account, %{amount: 700, recipient_account_id: 1})
-      iex> %{type: type, data: %{amount: amount}} = Map.get(result.operations, 1)
-      iex> {type, amount}
-      {:transfer_out, 700}
+      iex> init_account = Account.new(%{balance: -500})
+      iex> {
+      ...> :denied,
+      ...> reason,
+      ...> %Account{balance: -500},
+      ...> %Operation{type: :transfer_out, data: %{amount: 700}}
+      ...> } = Account.transfer_out(init_account, %{amount: 700, recipient_account_id: 1})
 
-      iex> init_state = %{balance: -950, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:denied, message, _} = Account.transfer_out(init_account, %{amount: 700, recipient_account_id: 1})
-      iex> message
-      "No funds"
+      iex> init_account = Account.new(%{balance: 3000})
+      iex> data = %{
+      ...> amount: 1000,
+      ...> recipients_data: [
+      ...>   %{percentage: 0.7, recipient_account_id: 2},
+      ...>   %{percentage: 0.2, recipient_account_id: 3},
+      ...>   %{percentage: 0.1, recipient_account_id: 4}
+      ...> ]}
+      iex> {
+      ...> :ok,
+      ...> %Account{balance: 2000},
+      ...> [
+      ...>   %Operation{data: %{amount: 100, recipient_account_id: 4}},
+      ...>   %Operation{data: %{amount: 200, recipient_account_id: 3}},
+      ...>   %Operation{data: %{amount: 700, recipient_account_id: 2}}
+      ...> ]} = Account.transfer_out(init_account, data)
 
   """
+  def transfer_out(
+        %Account{} = account,
+        %{amount: amount, recipient_account_id: _recipient_account_id} = data
+      ) do
+    case remove_balance(account, amount) do
+      {:ok, new_account} ->
+        {new_account, operation_data} =
+          register_operation(new_account, Operation.new(:transfer_out, data))
+
+        {:ok, new_account, operation_data}
+
+      {:denied, reason} ->
+        operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
+        operation = Operation.new(:transfer_out, operation_custom_data)
+        {new_account, operation_data} = register_operation(account, operation)
+
+        {:denied, reason, new_account, operation_data}
+    end
+  end
+
+  @spec transfer_out(
+          Account.t(),
+          %{amount: number, recipients_data: []}
+        ) ::
+          {:ok, Account.t(), [Operation.t()]}
+          | {:denied, String.t(), Account.t(), Operation.t()}
+
   def transfer_out(
         %Account{} = account,
         %{amount: amount, recipients_data: [_ | _] = _recipients_data} = data
       ) do
     case remove_balance(account, amount) do
       {:ok, new_account} ->
-        new_account = process_recipient_data(new_account, data)
-
-        {:ok, new_account}
+        {new_account, operations_data_list} = process_recipient_data(new_account, data)
+        {:ok, new_account, operations_data_list}
 
       {:denied, reason} ->
         operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
         operation = Operation.new(:transfer_out, operation_custom_data)
-        new_account = register_operation(account, operation)
+        {new_account, operation_data} = register_operation(account, operation)
 
-        {:denied, reason, new_account}
+        {:denied, reason, new_account, operation_data}
     end
   end
 
   @spec transfer_in(Account.t(), %{amount: pos_integer, sender_account_id: any}) ::
-          {:ok, Account.t()}
+          {:ok, Account.t(), Operation.t()}
   @doc """
   Register an event of transfer in and update de balance
 
   ## Examples
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.transfer_in(init_account, %{amount: 700, sender_account_id: 1})
-      iex> result.balance
-      1700
-
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.transfer_in(init_account, %{amount: 700, sender_account_id: 1})
-      iex> %{type: type, data: %{amount: amount}} = Map.get(result.operations, 1)
-      iex> {type, amount}
-      {:transfer_in, 700}
-
-      iex> init_state = %{balance: -1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.transfer_in(init_account, %{amount: 700, sender_account_id: 1})
-      iex> result.balance
-      -300
+      iex> init_account = Account.new(%{balance: 300})
+      iex> {
+      ...> :ok,
+      ...> %Account{balance: 1000},
+      ...> %Operation{type: :transfer_in, data: %{amount: 700}}
+      ...> } = Account.transfer_in(init_account, %{amount: 700, sender_account_id: 1})
 
   """
   def transfer_in(
         %Account{} = account,
         %{amount: amount, sender_account_id: _sender_account_id} = data
       ) do
-    new_account =
+    {new_account, operation_data} =
       account
       |> add_balance(amount)
       |> register_operation(Operation.new(:transfer_in, data))
 
-    {:ok, new_account}
+    {:ok, new_account, operation_data}
   end
 
   @spec card_transaction(Account.t(), %{amount: number, card_id: any}) ::
-          {:ok, Account.t()} | {:denied, String.t(), Account.t()}
+          {:ok, Account.t(), Operation.t()} | {:denied, String.t(), Account.t(), Operation.t()}
   @doc """
-  Register an event of card transaction and update de balance
+  Register an event of card transaction and update the balance
 
   - The operation is registered on account's operations either if it is `:denied` or `:ok`
 
   ## Examples
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.card_transaction(init_account, %{amount: 700, card_id: 1})
-      iex> result.balance
-      300
+      iex> init_account = Account.new(%{balance: 1000})
+      iex> {
+      ...> :ok,
+      ...> %Account{balance: 300},
+      ...> %Operation{type: :card_transaction, data: %{amount: 700}}
+      ...> } = Account.card_transaction(init_account, %{amount: 700, card_id: 1})
 
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, result} = Account.card_transaction(init_account, %{amount: 700, card_id: 1})
-      iex> %{type: type, data: %{amount: amount}} = Map.get(result.operations, 1)
-      iex> {type, amount}
-      {:card_transaction, 700}
-
-      iex> init_state = %{balance: -950, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:denied, message, _} = Account.card_transaction(init_account, %{amount: 700, card_id: 1})
-      iex> message
-      "No funds"
+      iex> init_account = Account.new(%{balance: -500})
+      iex> {
+      ...> :denied,
+      ...> reason,
+      ...> %Account{balance: -500},
+      ...> %Operation{type: :card_transaction, data: %{amount: 700}}
+      ...> } = Account.card_transaction(init_account, %{amount: 700, card_id: 1})
 
   """
   def card_transaction(%Account{} = account, %{amount: amount, card_id: _card_number} = data) do
     case(remove_balance(account, amount)) do
       {:ok, new_account} ->
         operation = Operation.new(:card_transaction, data)
-        new_account = register_operation(new_account, operation)
-        {:ok, new_account}
+        {new_account, operation_data} = register_operation(new_account, operation)
+        {:ok, new_account, operation_data}
 
       {:denied, reason} ->
         operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
         operation = Operation.new(:card_transaction, operation_custom_data)
-        new_account = register_operation(account, operation)
-        {:denied, reason, new_account}
+        {new_account, operation_data} = register_operation(account, operation)
+        {:denied, reason, new_account, operation_data}
     end
   end
 
   @spec refund(Account.t(), %{operation_to_refund_id: any}) ::
-          {:ok, Account.t()}
+          {:ok, Account.t(), Operation.t()}
           | {:error, String.t(), Account.t()}
   @doc """
-  Register an event of refund and update de balance
+  Register an event of refund, update de balance and update the refunded operation status
 
   - The operation is registered on account's operations onlf if it is `:ok`
 
   ## Examples
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, new_account} = Account.card_transaction(init_account, %{amount: 700, card_id: 1})
-      iex> {:ok, new_account} = Account.refund(new_account, %{operation_to_refund_id: 1})
-      iex> new_account.balance
-      1000
 
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700})
-      iex> {:error, message, _} = Account.refund(new_account, %{operation_to_refund_id: 1})
-      iex> message
-      "Unrefundable operation"
-
-      iex> init_state = %{balance: 1000, limit: -999}
-      iex> init_account = Account.new(init_state)
-      iex> {:error, message, _} = Account.refund(init_account, %{operation_to_refund_id: 1})
-      iex> message
-      "Operation do not exists"
-
+      iex> init_account = Account.new(%{balance: 1000})
+      iex> {:ok, init_account, %{id: op_id}} = Account.card_transaction(init_account, %{amount: 700, card_id: 1})
+      iex> {
+      ...> :ok,
+      ...> %Account{balance: 1000},
+      ...> %Operation{type: :refund, data: %{operation_to_refund_id: ^op_id}}
+      ...> } = Account.refund(init_account, %{operation_to_refund_id: op_id})
   """
   def refund(
         %Account{} = account,
@@ -344,12 +301,12 @@ defmodule Account do
             operation_custom_data = Map.put(data, :amount, refund_amount)
             operation = Operation.new(:refund, operation_custom_data)
 
-            new_account =
+            {new_account, operation_data} =
               add_balance(account, refund_amount)
-              |> register_operation(operation)
               |> update_operation_status(operation_to_refund_id, :refunded)
+              |> register_operation(operation)
 
-            {:ok, new_account}
+            {:ok, new_account, operation_data}
 
           {:error, reason} ->
             {:error, reason, account}
@@ -364,8 +321,7 @@ defmodule Account do
   Get the current balance of the account
 
   ## Examples
-      iex> init_state = %{balance: 1000}
-      iex> init_account = Account.new(init_state)
+      iex> init_account = Account.new(%{balance: 1000})
       iex> Account.balance(init_account)
       1000
   """
@@ -378,24 +334,14 @@ defmodule Account do
   Get a ordered list of all the operations that happen on a given date, ordered by occurence date time
 
   ## Examples
-      iex> init_state = %{balance: 1000}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700, date_time: ~U[2020-07-24 10:00:00Z]})
-      iex> oop_list = Account.operations(new_account, ~D[2020-07-24])
-      iex> [
-      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done}
-      ...> ] = oop_list
-
-      iex> init_state = %{balance: 1000}
-      iex> init_account = Account.new(init_state)
-      iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700, date_time: ~U[2020-07-24 11:00:00Z]})
-      iex> {:denied, _, new_account} = Account.withdraw(new_account, %{amount: 1300, date_time: ~U[2020-07-24 12:00:00Z]})
-      iex> {:ok, new_account} = Account.deposit(new_account, %{amount: 700, date_time: ~U[2020-07-25 11:00:00Z]})
-      iex> oop_list = Account.operations(new_account, ~D[2020-07-24])
+      iex> init_account = Account.new(%{balance: 1000})
+      iex> {:ok, new_account, _} = Account.withdraw(init_account, %{amount: 700, date_time: ~U[2020-07-24 11:00:00Z]})
+      iex> {:denied, _, new_account, _} = Account.withdraw(new_account, %{amount: 1300, date_time: ~U[2020-07-24 12:00:00Z]})
+      iex> {:ok, new_account, _} = Account.deposit(new_account, %{amount: 700, date_time: ~U[2020-07-25 11:00:00Z]})
       iex> [
       ...>  %Operation{type: :withdraw, data: %{amount: 1300}, status: :denied},
       ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done}
-      ...> ] = oop_list
+      ...> ] = Account.operations(new_account, ~D[2020-07-24])
   """
   @spec operations(Account.t(), Date.t()) :: [Operation.t()]
   def operations(%Account{} = account, date) do
@@ -409,19 +355,16 @@ defmodule Account do
   Get a ordered list of all the operations that happen between 2 dates, ordered by occurence date time
 
   ## Examples
-
-    iex> init_state = %{balance: 1000}
-    iex> init_account = Account.new(init_state)
-    iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700, date_time: ~U[2020-07-24 11:00:00Z]})
-    iex> {:denied, _, new_account} = Account.withdraw(new_account, %{amount: 1300, date_time: ~U[2020-07-24 12:00:00Z]})
-    iex> {:ok, new_account} = Account.deposit(new_account, %{amount: 700, date_time: ~U[2020-07-25 11:00:00Z]})
-    iex> {:ok, new_account} = Account.deposit(new_account, %{amount: 1800, date_time: ~U[2020-07-26 11:00:00Z]})
-    iex> oop_list = Account.operations(new_account, ~D[2020-07-24], ~D[2020-07-25] )
+    iex> init_account = Account.new(%{balance: 1000})
+    iex> {:ok, new_account, _} = Account.withdraw(init_account, %{amount: 700, date_time: ~U[2020-07-24 11:00:00Z]})
+    iex> {:denied, _, new_account, _} = Account.withdraw(new_account, %{amount: 1300, date_time: ~U[2020-07-24 12:00:00Z]})
+    iex> {:ok, new_account, _} = Account.deposit(new_account, %{amount: 700, date_time: ~U[2020-07-25 11:00:00Z]})
+    iex> {:ok, new_account, _} = Account.deposit(new_account, %{amount: 1800, date_time: ~U[2020-07-26 11:00:00Z]})
     iex> [
     ...>  %Operation{type: :deposit, data: %{amount: 700}, status: :done},
     ...>  %Operation{type: :withdraw, data: %{amount: 1300}, status: :denied},
     ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done}
-    ...> ] = oop_list
+    ...> ] = Account.operations(new_account, ~D[2020-07-24], ~D[2020-07-25] )
   """
   @spec operations(Account.t(), Date.t(), Date.t()) :: [Operation.t()]
   def operations(%Account{} = account, ini_date, fin_date) do
@@ -469,16 +412,19 @@ defmodule Account do
     Helpers.is_date_between(DateTime.to_date(operation.date_time), ini, fin)
   end
 
+  @spec register_operation(Account.t(), Operation.t()) :: {Account.t(), Operation.t()}
   defp register_operation(%Account{} = account, %Operation{} = new_operation) do
     new_operation_entry = Map.put(new_operation, :id, account.operations_auto_id)
 
     new_operations = Map.put(account.operations, account.operations_auto_id, new_operation_entry)
 
-    %Account{
+    new_account = %Account{
       account
       | operations: new_operations,
         operations_auto_id: account.operations_auto_id + 1
     }
+
+    {new_account, new_operation_entry}
   end
 
   defp remove_balance(%Account{} = account, amount) do
@@ -511,10 +457,16 @@ defmodule Account do
     custom_data = Map.delete(data, :recipients_data)
     total_amount = Map.get(data, :amount)
 
-    Map.get(data, :recipients_data)
-    |> Stream.map(&update_recipient_data_amount(&1, total_amount))
-    |> Stream.map(&Operation.new(:transfer_out, Map.merge(custom_data, &1)))
-    |> Enum.reduce(account, fn operation, account -> register_operation(account, operation) end)
+    {new_account, operation_data_list} =
+      Map.get(data, :recipients_data)
+      |> Stream.map(&update_recipient_data_amount(&1, total_amount))
+      |> Stream.map(&Operation.new(:transfer_out, Map.merge(custom_data, &1)))
+      |> Enum.reduce({account, []}, fn operation, {account, operation_list} ->
+        {new_account, operation_data} = register_operation(account, operation)
+        {new_account, [operation_data | operation_list]}
+      end)
+
+    {new_account, operation_data_list}
   end
 
   defp update_recipient_data_amount(%{} = recipient_data, total_amount) do

@@ -28,18 +28,18 @@ defmodule Http.Account.Withdraw do
 
   defp generate_http_response(operation_response) do
     case operation_response do
-      {:ok, new_balance, operation_id} ->
+      {:ok, new_balance, operation_data} ->
         {201,
          %{
            success: true,
            response: %{
              approved: true,
              new_balance: new_balance,
-             operation_id: operation_id
+             operation: operation_data
            }
          }}
 
-      {:denied, reason, balance, operation_id} ->
+      {:denied, reason, balance, operation_data} ->
         {
           201,
           %{
@@ -48,7 +48,7 @@ defmodule Http.Account.Withdraw do
               approved: false,
               reason: reason,
               new_balance: balance,
-              operation_id: operation_id
+              operation: operation_data
             }
           }
         }

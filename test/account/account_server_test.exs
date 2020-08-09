@@ -22,7 +22,7 @@ defmodule AccountServerTest do
     :ok
   end
 
-  doctest Account.Server
+  # doctest Account.Server
 
   test "account server process operations #1" do
     bob_account_pid = Account.Cache.server_process(1)

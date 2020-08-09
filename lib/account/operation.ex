@@ -4,21 +4,22 @@ defmodule Operation do
 
   By default, any operation initialize with status `:done` and with the current date time
 
-  If you want to change any key value of the operation struct you should pass it new value with the data parameter
+  If you want to change any key value of the operation struct you should pass it new value inside the data parameter
   eg: `Operation.new(:type, %{status: :new_status} )`
   """
 
   @typedoc """
   Basic struct to define an `Operation`
 
-  The `Operation.t()` data structure is composed by 4 values:
-  - Date Time: The date and time of the operation occurence
-  - Type: Atom that identifies the type of the operation
-  - Data: Customized data about the operation based on the operation type, can be used to pass metadata about the operation
-  - Status: Atom that indicates if the operation suceeded or not. [:done, :denied, :refunded]
+  The `Operation.t()` data structure is composed by 5 values:
+  - date_time: The date and time of the operation occurence
+  - type: Atom that identifies the type of the operation
+  - data: Customized data about the operation based on the operation type, can be used to pass metadata about the operation
+  - status: Atom that indicates if the operation suceeded or not. [:done, :denied, :refunded]
+  - id: Sequential identifier, that identifies the operation only inside an Account context
   """
   @type t() :: %Operation{date_time: Date.t(), type: atom(), data: map()}
-  defstruct date_time: nil, type: :type, data: %{}, status: :done
+  defstruct date_time: nil, type: :type, data: %{}, status: :done, id: nil
 
   defp list_to_map(list) do
     for {k, v} <- list, into: %{} do
