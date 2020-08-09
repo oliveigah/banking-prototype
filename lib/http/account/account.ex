@@ -7,9 +7,12 @@ defmodule Http.Account do
   plug(:dispatch)
 
   def child_spec(_arg) do
+    port = Application.fetch_env!(:banking, :account_http_port)
+    IO.puts("Account HTTP server listening to: port #{port}")
+
     Plug.Adapters.Cowboy.child_spec(
       scheme: :http,
-      options: [port: 3000],
+      options: [port: port],
       plug: __MODULE__
     )
   end

@@ -2,9 +2,9 @@ defmodule Operation do
   @moduledoc """
   Pure functional module, used to define new operations that happen over an `Account`
 
-  By default, any operation initialize with status `:done`
+  By default, any operation initialize with status `:done` and with the current date time
 
-  If you want to chage the status of an operation you should pass it new value with the data parameter
+  If you want to change any key value of the operation struct you should pass it new value with the data parameter
   eg: `Operation.new(:type, %{status: :new_status} )`
   """
 
@@ -15,12 +15,11 @@ defmodule Operation do
   - Date Time: The date and time of the operation occurence
   - Type: Atom that identifies the type of the operation
   - Data: Customized data about the operation based on the operation type, can be used to pass metadata about the operation
-  - Status: Atom that indicates if the operation suceeded or not
+  - Status: Atom that indicates if the operation suceeded or not. [:done, :denied, :refunded]
   """
   @type t() :: %Operation{date_time: Date.t(), type: atom(), data: map()}
   defstruct date_time: nil, type: :type, data: %{}, status: :done
 
-  @spec list_to_map([{any(), any()}]) :: map
   defp list_to_map(list) do
     for {k, v} <- list, into: %{} do
       {k, v}
@@ -60,8 +59,8 @@ defmodule Operation do
       true
 
       # Any key argument on data will change the operation default value for the provided key
-      iex> oop = Operation.new(:deposit, %{amount: 1000, status: "My custom status"})
-      iex> match?(%{status: "My custom status"}, oop)
+      iex> oop = Operation.new(:deposit, %{amount: 1000, status: "My custom status", date_time: ~U[2020-07-24 10:00:00Z]})
+      iex> match?(%{status: "My custom status", date_time: ~U[2020-07-24 10:00:00Z]}, oop)
       true
 
   """

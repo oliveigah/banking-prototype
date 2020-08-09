@@ -173,49 +173,73 @@ defmodule AccountTest do
            Account.card_transaction(bob_account, %{
              amount: 3000,
              card_id: 1,
-             date_time: ~U[2020-07-24 10:00:00Z]
+             date_time: ~U[2020-07-24 11:00:00Z]
            }),
          {:ok, bob_account} <-
            Account.refund(bob_account, %{
              operation_to_refund_id: 2,
-             date_time: ~U[2020-07-24 10:00:00Z]
+             date_time: ~U[2020-07-24 12:00:00Z]
            }) do
       assert Account.balance(bob_account) == 5000
 
       assert [
-               %Operation{data: %{amount: 5000}, type: :deposit, status: :done},
-               %Operation{data: %{amount: 3000}, type: :card_transaction, status: :refunded},
                %Operation{
                  data: %{amount: 3000, operation_to_refund_id: 2},
                  type: :refund,
                  status: :done
-               }
+               },
+               %Operation{data: %{amount: 3000}, type: :card_transaction, status: :refunded},
+               %Operation{data: %{amount: 5000}, type: :deposit, status: :done}
              ] = Account.operations(bob_account, ~D[2020-07-24])
     end
   end
 
-  test "account refund failure" do
+  test "account refund error should not register operation" do
+    bob_account = Account.new()
+
+    with {:ok, bob_account} <-
+           Account.deposit(bob_account, %{amount: 5000, date_time: ~U[2020-07-24 11:00:00Z]}),
+         {:ok, bob_account} <-
+           Account.withdraw(bob_account, %{
+             amount: 3000,
+             card_id: 1,
+             date_time: ~U[2020-07-24 12:00:00Z]
+           }),
+         {:error, _message, bob_account} <-
+           Account.refund(bob_account, %{
+             operation_to_refund_id: 2,
+             date_time: ~U[2020-07-24 13:00:00Z]
+           }) do
+      assert Account.balance(bob_account) == 2000
+
+      assert [
+               %Operation{data: %{amount: 3000}, type: :withdraw, status: :done},
+               %Operation{data: %{amount: 5000}, type: :deposit, status: :done}
+             ] = Account.operations(bob_account, ~D[2020-07-24])
+    end
+  end
+
+  test "account operations" do
     bob_account = Account.new()
 
     with {:ok, bob_account} <-
            Account.deposit(bob_account, %{amount: 5000, date_time: ~U[2020-07-24 10:00:00Z]}),
          {:ok, bob_account} <-
-           Account.withdraw(bob_account, %{
-             amount: 3000,
-             card_id: 1,
-             date_time: ~U[2020-07-24 10:00:00Z]
-           }),
-         {:error, _message, bob_account} <-
-           Account.refund(bob_account, %{
-             operation_to_refund_id: 2,
-             date_time: ~U[2020-07-24 10:00:00Z]
-           }) do
-      assert Account.balance(bob_account) == 2000
+           Account.withdraw(bob_account, %{amount: 5000, date_time: ~U[2020-07-24 11:00:00Z]}),
+         {:denied, _, bob_account} <-
+           Account.withdraw(bob_account, %{amount: 5000, date_time: ~U[2020-07-26 10:00:00Z]}),
+         {:ok, bob_account} <-
+           Account.deposit(bob_account, %{amount: 5000, date_time: ~U[2020-07-27 10:00:00Z]}) do
+      assert [
+               %Operation{data: %{amount: 5000}, type: :withdraw, status: :done},
+               %Operation{data: %{amount: 5000}, type: :deposit, status: :done}
+             ] = Account.operations(bob_account, ~D[2020-07-24])
 
       assert [
                %Operation{data: %{amount: 5000}, type: :deposit, status: :done},
-               %Operation{data: %{amount: 3000}, type: :withdraw, status: :done}
-             ] = Account.operations(bob_account, ~D[2020-07-24])
+               %Operation{data: %{amount: 5000}, type: :withdraw, status: :denied}
+             ] = Account.operations(bob_account, ~D[2020-07-25], ~D[2020-07-27])
     end
   end
+
 end

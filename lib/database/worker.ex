@@ -8,7 +8,6 @@ defmodule Database.Worker do
 
   @spec start_link({number(), String.t()}) :: :ignore | {:error, any} | {:ok, pid}
   def start_link(worker_id) do
-    IO.puts("Starting Database.Worker #{worker_id} linked to #{inspect(self())}")
     GenServer.start_link(__MODULE__, nil, name: via_tuple(worker_id))
   end
 

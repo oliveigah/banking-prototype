@@ -2,7 +2,6 @@ defmodule Account.Cache do
   @moduledoc """
   `DynamicSupervisor` that manages all `Account.Server` processes currently running on the system
 
-  TODO: Implement a time based clean up function to prevent the indefinetely grow of the process
   """
 
   @spec start_link :: :ignore | {:error, any} | {:ok, pid}
@@ -10,7 +9,6 @@ defmodule Account.Cache do
   Start the `Account.Cache` server
   """
   def start_link() do
-    IO.puts("Starting Account.Cache linked to #{inspect(self())}")
     DynamicSupervisor.start_link(name: __MODULE__, strategy: :one_for_one)
   end
 
@@ -29,7 +27,10 @@ defmodule Account.Cache do
 
   @spec server_process(number) :: pid
   @doc """
-  Get the `pid` of a `Account.Server` process that is running the data of an account with the given id. If the server isn't running it is initialized with the data persisted on database or with the given args
+  Get the `pid` of a `Account.Server` process that is running the account with the given id.
+
+  If the server isn't running it is initialized with the data persisted on database.
+  If no data is persisted the server is initialized with the given args
 
   - The `args` will be used to fill the account data ONLY IF the given id does not have any data persisted on the database
   - If the given id already have persited data on database, args will be ignored

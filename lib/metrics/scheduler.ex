@@ -2,7 +2,6 @@ defmodule Metrics.Scheduler do
   use GenServer
   @interval_time_ms :timer.seconds(60)
   def start_link(_arg) do
-    IO.puts("Starting Metrics.Scheduler linked to #{inspect(self())}")
     GenServer.start_link(__MODULE__, nil, name: __MODULE__)
   end
 

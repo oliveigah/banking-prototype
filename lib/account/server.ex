@@ -34,7 +34,6 @@ defmodule Account.Server do
       5000
   """
   def start_link(%{id: account_id} = args) do
-    # IO.puts("Starting Account.Server #{account_id} linked to #{inspect(self())}")
     GenServer.start_link(Account.Server, args, name: via_tuple(account_id))
   end
 
@@ -73,7 +72,8 @@ defmodule Account.Server do
     GenServer.call(account_server, {:deposit, data})
   end
 
-  @spec transfer_in(pid, %{amount: number, sender_account_id: number}) :: {:ok, number, number}
+  @spec transfer_in(pid, %{amount: number, sender_account_id: number} | map) ::
+          {:ok, number, number}
   @doc """
   Deposit into the account balance
 
@@ -89,7 +89,7 @@ defmodule Account.Server do
   @spec transfer_out(pid, %{amount: number, recipient_account_id: number}) ::
           {:ok, number, number, number} | {:denied, String.t(), number, number}
   @doc """
-  Transfer resources to another account from the account balance
+  Transfer resources to another account
 
   ## Examples
       iex> server_pid = Account.Cache.server_process(1, %{balance: 3000})
@@ -178,24 +178,22 @@ defmodule Account.Server do
 
       iex> server_pid = Account.Cache.server_process(1, %{balance: 2000})
       iex> Account.Server.withdraw(server_pid, %{amount: 700, date_time: ~U[2020-07-24 10:00:00Z]})
-      iex> Account.Server.deposit(server_pid, %{amount: 1000, date_time: ~U[2020-07-24 10:00:00Z]})
+      iex> Account.Server.deposit(server_pid, %{amount: 1000, date_time: ~U[2020-07-24 11:00:00Z]})
       iex> oop = Account.Server.operations(server_pid, ~D[2020-07-24])
-      iex> match?([
-      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done},
-      ...>  %Operation{type: :deposit, data: %{amount: 1000}, status: :done}
-      ...> ], oop)
-      true
+      iex> [
+      ...>  %Operation{type: :deposit, data: %{amount: 1000}, status: :done},
+      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done}
+      ...> ] = oop
 
       iex> server_pid = Account.Cache.server_process(1, %{balance: 2000})
       iex> Account.Server.withdraw(server_pid, %{amount: 300, date_time: ~U[2020-07-23 10:00:00Z]})
-      iex> Account.Server.withdraw(server_pid, %{amount: 700, date_time: ~U[2020-07-24 10:00:00Z]})
-      iex> Account.Server.withdraw(server_pid, %{amount: 1900, date_time: ~U[2020-07-24 10:00:00Z]})
+      iex> Account.Server.withdraw(server_pid, %{amount: 700, date_time: ~U[2020-07-24 11:00:00Z]})
+      iex> Account.Server.withdraw(server_pid, %{amount: 1900, date_time: ~U[2020-07-24 12:00:00Z]})
       iex> oop = Account.Server.operations(server_pid, ~D[2020-07-24])
-      iex> match?([
-      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done},
-      ...>  %Operation{type: :withdraw, data: %{amount: 1900}, status: :denied}
-      ...> ], oop)
-      true
+      iex> [
+      ...>  %Operation{type: :withdraw, data: %{amount: 1900}, status: :denied},
+      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done}
+      ...> ] = oop
   """
   def operations(account_server, date) do
     GenServer.call(account_server, {:operations, date})
@@ -203,7 +201,7 @@ defmodule Account.Server do
 
   @spec operations(pid, Date.t(), Date.t()) :: any
   @doc """
-  Get the list of operations that occur betweem 2 dates
+  Get the list of operations that occur betweem 2 dates, ordered by occurence date time
 
   ## Examples
       iex> server_pid = Account.Cache.server_process(1)
@@ -212,24 +210,23 @@ defmodule Account.Server do
 
       iex> server_pid = Account.Cache.server_process(1, %{balance: 2000})
       iex> Account.Server.withdraw(server_pid, %{amount: 700, date_time: ~U[2020-07-24 10:00:00Z]})
-      iex> Account.Server.deposit(server_pid, %{amount: 1000, date_time: ~U[2020-07-25 10:00:00Z]})
+      iex> Account.Server.deposit(server_pid, %{amount: 1000, date_time: ~U[2020-07-25 11:00:00Z]})
       iex> oop = Account.Server.operations(server_pid, ~D[2020-07-24], ~D[2020-07-25])
-      iex> match?([
+      iex> [
       ...>  %Operation{type: :deposit, data: %{amount: 1000}, status: :done},
       ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done}
-      ...> ], oop)
-      true
+      ...> ] = oop
 
       iex> server_pid = Account.Cache.server_process(1, %{balance: 2000})
       iex> Account.Server.withdraw(server_pid, %{amount: 300, date_time: ~U[2020-07-23 10:00:00Z]})
-      iex> Account.Server.withdraw(server_pid, %{amount: 700, date_time: ~U[2020-07-24 10:00:00Z]})
-      iex> Account.Server.withdraw(server_pid, %{amount: 1900, date_time: ~U[2020-07-25 10:00:00Z]})
+      iex> Account.Server.withdraw(server_pid, %{amount: 700, date_time: ~U[2020-07-24 11:00:00Z]})
+      iex> Account.Server.withdraw(server_pid, %{amount: 1900, date_time: ~U[2020-07-25 12:00:00Z]})
       iex> oop = Account.Server.operations(server_pid, ~D[2020-07-23], ~D[2020-07-24])
-      iex> match?([
+      iex> [
       ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done},
       ...>  %Operation{type: :withdraw, data: %{amount: 300}, status: :done}
-      ...> ], oop)
-      true
+      ...> ] = oop
+
   """
   def operations(account_server, date_ini, date_fin) do
     GenServer.call(account_server, {:operations, date_ini, date_fin})
@@ -264,12 +261,16 @@ defmodule Account.Server do
     account_data.operations_auto_id - 1
   end
 
-  defp transfer_to_account(amount, sender_id, recipient_id) do
+  defp transfer_to_account(%{amount: amount} = data, sender_id, recipient_id) do
+    transfer_data =
+      Map.merge(data, %{
+        amount: amount,
+        sender_account_id: sender_id
+      })
+      |> Map.delete(:recipient_id)
+
     Account.Cache.server_process(recipient_id)
-    |> Account.Server.transfer_in(%{
-      amount: amount,
-      sender_account_id: sender_id
-    })
+    |> Account.Server.transfer_in(transfer_data)
   end
 
   @impl GenServer
@@ -335,7 +336,7 @@ defmodule Account.Server do
 
   @impl GenServer
   def handle_call(
-        {:transfer_out, %{amount: amount, recipient_account_id: recipient} = data},
+        {:transfer_out, %{amount: _amount, recipient_account_id: recipient} = data},
         _from,
         %Account{} = current_state
       ) do
@@ -344,7 +345,7 @@ defmodule Account.Server do
         persist_data(new_state)
         sender_id = Map.get(new_state, :id)
 
-        {:ok, _, recipient_operation_id} = transfer_to_account(amount, sender_id, recipient)
+        {:ok, _, recipient_operation_id} = transfer_to_account(data, sender_id, recipient)
 
         {
           :reply,

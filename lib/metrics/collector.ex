@@ -6,7 +6,6 @@ defmodule Metrics.Collector do
   end
 
   def collect_metrics() do
-    IO.puts("Collecting system's metrics...")
     metric_key = compose_metric_key()
     new_metric = compose_metrics_data()
     current_metrics = Database.get(metric_key, @database_folder) || %{}

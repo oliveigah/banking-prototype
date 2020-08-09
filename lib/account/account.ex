@@ -361,28 +361,27 @@ defmodule Account do
   end
 
   @doc """
-  Get all the operations that happen on a given date
+  Get a ordered list of all the operations that happen on a given date, ordered by occurence date time
 
   ## Examples
       iex> init_state = %{balance: 1000}
       iex> init_account = Account.new(init_state)
       iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700, date_time: ~U[2020-07-24 10:00:00Z]})
       iex> oop_list = Account.operations(new_account, ~D[2020-07-24])
-      iex> match?([
+      iex> [
       ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done}
-      ...> ], oop_list)
-      true
+      ...> ] = oop_list
 
       iex> init_state = %{balance: 1000}
       iex> init_account = Account.new(init_state)
-      iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700, date_time: ~U[2020-07-24 10:00:00Z]})
-      iex> {:denied, _, new_account} = Account.withdraw(new_account, %{amount: 1300, date_time: ~U[2020-07-24 10:00:00Z]})
+      iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700, date_time: ~U[2020-07-24 11:00:00Z]})
+      iex> {:denied, _, new_account} = Account.withdraw(new_account, %{amount: 1300, date_time: ~U[2020-07-24 12:00:00Z]})
+      iex> {:ok, new_account} = Account.deposit(new_account, %{amount: 700, date_time: ~U[2020-07-25 11:00:00Z]})
       iex> oop_list = Account.operations(new_account, ~D[2020-07-24])
-      iex> match?([
-      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done},
-      ...>  %Operation{type: :withdraw, data: %{amount: 1300}, status: :denied}
-      ...> ], oop_list)
-      true
+      iex> [
+      ...>  %Operation{type: :withdraw, data: %{amount: 1300}, status: :denied},
+      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done}
+      ...> ] = oop_list
   """
   @spec operations(Account.t(), Date.t()) :: [Operation.t()]
   def operations(%Account{} = account, date) do
@@ -405,8 +404,22 @@ defmodule Account do
   end
 
   @doc """
-  Get all the operations that happen between 2 dates
+  Get a ordered list of all the operations that happen between 2 dates, ordered by occurence date time
 
+  ## Examples
+
+    iex> init_state = %{balance: 1000}
+    iex> init_account = Account.new(init_state)
+    iex> {:ok, new_account} = Account.withdraw(init_account, %{amount: 700, date_time: ~U[2020-07-24 11:00:00Z]})
+    iex> {:denied, _, new_account} = Account.withdraw(new_account, %{amount: 1300, date_time: ~U[2020-07-24 12:00:00Z]})
+    iex> {:ok, new_account} = Account.deposit(new_account, %{amount: 700, date_time: ~U[2020-07-25 11:00:00Z]})
+    iex> {:ok, new_account} = Account.deposit(new_account, %{amount: 1800, date_time: ~U[2020-07-26 11:00:00Z]})
+    iex> oop_list = Account.operations(new_account, ~D[2020-07-24], ~D[2020-07-25] )
+    iex> [
+    ...>  %Operation{type: :deposit, data: %{amount: 700}, status: :done},
+    ...>  %Operation{type: :withdraw, data: %{amount: 1300}, status: :denied},
+    ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done}
+    ...> ] = oop_list
   """
   @spec operations(Account.t(), Date.t(), Date.t()) :: [Operation.t()]
   def operations(%Account{} = account, ini_date, fin_date) do

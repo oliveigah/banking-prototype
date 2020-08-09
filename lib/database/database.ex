@@ -9,13 +9,12 @@ defmodule Database do
     TODO: Segregate get and put workers
   """
   @workers_count 3
-  @base_folder "./persist/"
+  @base_folder Application.compile_env!(:banking, :database_base_folder)
   @spec start_link() :: :ignore | {:error, any} | {:ok, pid}
   @doc """
   Start the server
   """
   def start_link() do
-    IO.puts("Starting Database linked to #{inspect(self())}")
 
     workers_spec_list = Enum.map(1..@workers_count, &worker_spec/1)
 
