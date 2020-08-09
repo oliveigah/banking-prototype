@@ -4,7 +4,6 @@ defmodule Account do
 
     All events except `refunds` that are denied or done, will be saved on the operations data structure. Refunds are registered only if suceed.
   """
-  @refundable_operations [:card_transaction]
 
   @typedoc """
   Basic struct to manage `Account`
@@ -52,26 +51,6 @@ defmodule Account do
     Map.merge(new_account, args)
   end
 
-  defp is_refundable(%Operation{} = operation) do
-    is_card_operation =
-      Enum.find(@refundable_operations, nil, fn type -> type == operation.type end) !== nil
-
-    is_done = operation.status === :done
-
-    is_card_operation && is_done
-  end
-
-  defp register_operation(%Account{} = account, %Operation{} = new_operation) do
-    new_operation_entry = Map.put(new_operation, :id, account.operations_auto_id)
-    new_operations = Map.put(account.operations, account.operations_auto_id, new_operation_entry)
-
-    %Account{
-      account
-      | operations: new_operations,
-        operations_auto_id: account.operations_auto_id + 1
-    }
-  end
-
   @spec withdraw(Account.t(), %{amount: number}) ::
           {:ok, Account.t()} | {:denied, String.t(), Account.t()}
   @doc """
@@ -101,22 +80,17 @@ defmodule Account do
 
   """
   def withdraw(%Account{} = account, %{amount: amount} = data) do
-    new_balance = account.balance - amount
+    case remove_balance(account, amount) do
+      {:ok, new_account} ->
+        operation = Operation.new(:withdraw, data)
+        new_account = register_operation(new_account, operation)
+        {:ok, new_account}
 
-    if new_balance >= account.limit do
-      new_account =
-        %Account{account | balance: new_balance}
-        |> register_operation(Operation.new(:withdraw, data))
-
-      {:ok, new_account}
-    else
-      operation =
-        Operation.new(
-          :withdraw,
-          Map.merge(data, %{message: "No funds", status: :denied})
-        )
-
-      {:denied, "No funds", register_operation(account, operation)}
+      {:denied, reason} ->
+        operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
+        operation = Operation.new(:withdraw, operation_custom_data)
+        new_account = register_operation(account, operation)
+        {:denied, reason, new_account}
     end
   end
 
@@ -147,7 +121,8 @@ defmodule Account do
   """
   def deposit(%Account{} = account, %{amount: amount} = data) do
     new_account =
-      %Account{account | balance: account.balance + amount}
+      account
+      |> add_balance(amount)
       |> register_operation(Operation.new(:deposit, data))
 
     {:ok, new_account}
@@ -156,7 +131,7 @@ defmodule Account do
   @spec transfer_out(Account.t(), %{amount: number, recipient_account_id: number}) ::
           {:ok, Account.t()} | {:denied, String.t(), Account.t()}
   @doc """
-  Register an event of transfer out and update de balance
+  Register an event of transfer out and update the balance
 
   - The operation is registered on account's operations either if it is `:denied` or `:ok`
 
@@ -185,19 +160,64 @@ defmodule Account do
         %Account{} = account,
         %{amount: amount, recipient_account_id: _recipient_account_id} = data
       ) do
-    new_balance = account.balance - amount
+    case remove_balance(account, amount) do
+      {:ok, new_account} ->
+        new_account = register_operation(new_account, Operation.new(:transfer_out, data))
+        {:ok, new_account}
 
-    if new_balance >= account.limit do
-      new_account =
-        %Account{account | balance: new_balance}
-        |> register_operation(Operation.new(:transfer_out, data))
+      {:denied, reason} ->
+        operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
+        operation = Operation.new(:transfer_out, operation_custom_data)
+        new_account = register_operation(account, operation)
 
-      {:ok, new_account}
-    else
-      operation =
-        Operation.new(:transfer_out, Map.merge(data, %{message: "No funds", status: :denied}))
+        {:denied, reason, new_account}
+    end
+  end
 
-      {:denied, "No funds", register_operation(account, operation)}
+  @doc """
+  Register an event of transfer for each data received on the list and update the balance
+
+  - If this suceed, the split operation generates N :transfer_out operations on the account operation list
+  - If it is denied, only one operation will be created on the operations lists
+  - All the aditional data passed to data paramenter will be copied to each generated opertion
+
+  ## Examples
+      iex> init_state = %{balance: 1000, limit: -999}
+      iex> init_account = Account.new(init_state)
+      iex> {:ok, result} = Account.transfer_out(init_account, %{amount: 700, recipient_account_id: 1})
+      iex> result.balance
+      300
+
+      iex> init_state = %{balance: 1000, limit: -999}
+      iex> init_account = Account.new(init_state)
+      iex> {:ok, result} = Account.transfer_out(init_account, %{amount: 700, recipient_account_id: 1})
+      iex> %{type: type, data: %{amount: amount}} = Map.get(result.operations, 1)
+      iex> {type, amount}
+      {:transfer_out, 700}
+
+      iex> init_state = %{balance: -950, limit: -999}
+      iex> init_account = Account.new(init_state)
+      iex> {:denied, message, _} = Account.transfer_out(init_account, %{amount: 700, recipient_account_id: 1})
+      iex> message
+      "No funds"
+
+  """
+  def transfer_out(
+        %Account{} = account,
+        %{amount: amount, recipients_data: [_ | _] = _recipients_data} = data
+      ) do
+    case remove_balance(account, amount) do
+      {:ok, new_account} ->
+        new_account = process_recipient_data(new_account, data)
+
+        {:ok, new_account}
+
+      {:denied, reason} ->
+        operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
+        operation = Operation.new(:transfer_out, operation_custom_data)
+        new_account = register_operation(account, operation)
+
+        {:denied, reason, new_account}
     end
   end
 
@@ -232,7 +252,8 @@ defmodule Account do
         %{amount: amount, sender_account_id: _sender_account_id} = data
       ) do
     new_account =
-      %Account{account | balance: account.balance + amount}
+      account
+      |> add_balance(amount)
       |> register_operation(Operation.new(:transfer_in, data))
 
     {:ok, new_account}
@@ -267,19 +288,17 @@ defmodule Account do
 
   """
   def card_transaction(%Account{} = account, %{amount: amount, card_id: _card_number} = data) do
-    new_balance = account.balance - amount
+    case(remove_balance(account, amount)) do
+      {:ok, new_account} ->
+        operation = Operation.new(:card_transaction, data)
+        new_account = register_operation(new_account, operation)
+        {:ok, new_account}
 
-    if(new_balance >= account.limit) do
-      new_account =
-        %Account{account | balance: new_balance}
-        |> register_operation(Operation.new(:card_transaction, data))
-
-      {:ok, new_account}
-    else
-      operation =
-        Operation.new(:card_transaction, Map.merge(data, %{message: "No funds", status: :denied}))
-
-      {:denied, "No funds", register_operation(account, operation)}
+      {:denied, reason} ->
+        operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
+        operation = Operation.new(:card_transaction, operation_custom_data)
+        new_account = register_operation(account, operation)
+        {:denied, reason, new_account}
     end
   end
 
@@ -317,33 +336,28 @@ defmodule Account do
         %Account{} = account,
         %{operation_to_refund_id: operation_to_refund_id} = data
       ) do
-    case Map.fetch(account.operations, operation_to_refund_id) do
+    case operation_exists(account, operation_to_refund_id) do
       {:ok, operation_to_refund} ->
-        if is_refundable(operation_to_refund) do
-          new_account =
-            %Account{account | balance: account.balance + operation_to_refund.data.amount}
-            |> register_operation(
-              Operation.new(
-                :refund,
-                Map.put(data, :amount, operation_to_refund.data.amount)
-              )
-            )
-            |> set_operation_status(operation_to_refund_id, :refunded)
+        case is_refundable(operation_to_refund) do
+          {:ok, operation_to_refund} ->
+            refund_amount = operation_to_refund.data.amount
+            operation_custom_data = Map.put(data, :amount, refund_amount)
+            operation = Operation.new(:refund, operation_custom_data)
 
-          {:ok, new_account}
-        else
-          {:error, "Unrefundable operation", account}
+            new_account =
+              add_balance(account, refund_amount)
+              |> register_operation(operation)
+              |> update_operation_status(operation_to_refund_id, :refunded)
+
+            {:ok, new_account}
+
+          {:error, reason} ->
+            {:error, reason, account}
         end
 
-      :error ->
-        {:error, "Operation do not exists", account}
+      {:error, reason} ->
+        {:error, reason, account}
     end
-  end
-
-  defp set_operation_status(%Account{} = account, operation_id, new_status) do
-    new_operation = Map.put(Map.get(account.operations, operation_id), :status, new_status)
-    new_operations = Map.put(account.operations, operation_id, new_operation)
-    Map.put(account, :operations, new_operations)
   end
 
   @doc """
@@ -391,18 +405,6 @@ defmodule Account do
     |> Enum.sort(&compare_operations(&1, &2))
   end
 
-  defp compare_operations(op1, op2) do
-    date_time_op1 = Map.get(op1, :date_time)
-    date_time_op2 = Map.get(op2, :date_time)
-    DateTime.diff(date_time_op1, date_time_op2, :millisecond) >= 0
-  end
-
-  defp is_date_between(date, date_ini, date_fin) do
-    ini_diff = Date.diff(date, date_ini)
-    fin_diff = Date.diff(date, date_fin)
-    ini_diff >= 0 && fin_diff <= 0
-  end
-
   @doc """
   Get a ordered list of all the operations that happen between 2 dates, ordered by occurence date time
 
@@ -424,14 +426,102 @@ defmodule Account do
   @spec operations(Account.t(), Date.t(), Date.t()) :: [Operation.t()]
   def operations(%Account{} = account, ini_date, fin_date) do
     account.operations
-    |> Stream.filter(fn {_, operation} ->
-      is_date_between(DateTime.to_date(operation.date_time), ini_date, fin_date)
-    end)
+    |> Stream.filter(fn {_, operation} -> is_between(operation, ini_date, fin_date) end)
     |> Enum.map(fn {_, operation} -> operation end)
     |> Enum.sort(&compare_operations(&1, &2))
   end
 
   def operation(%Account{} = account, operation_id) do
     Map.get(account.operations, operation_id)
+  end
+
+  ## HELPERS ##
+  @refundable_operations [:card_transaction]
+
+  defp is_refundable(%Operation{} = operation) do
+    is_card_operation =
+      Enum.find(@refundable_operations, nil, fn type -> type == operation.type end) !== nil
+
+    is_done = operation.status === :done
+
+    refundable = is_card_operation && is_done
+
+    case refundable do
+      true ->
+        {:ok, operation}
+
+      false ->
+        {:error, "Unrefundable operation"}
+    end
+  end
+
+  defp operation_exists(%Account{} = account, operation_id) do
+    case Map.fetch(account.operations, operation_id) do
+      :error ->
+        {:error, "Operation do not exists"}
+
+      {:ok, operation} ->
+        {:ok, operation}
+    end
+  end
+
+  defp is_between(%Operation{} = operation, ini, fin) do
+    Helpers.is_date_between(DateTime.to_date(operation.date_time), ini, fin)
+  end
+
+  defp register_operation(%Account{} = account, %Operation{} = new_operation) do
+    new_operation_entry = Map.put(new_operation, :id, account.operations_auto_id)
+
+    new_operations = Map.put(account.operations, account.operations_auto_id, new_operation_entry)
+
+    %Account{
+      account
+      | operations: new_operations,
+        operations_auto_id: account.operations_auto_id + 1
+    }
+  end
+
+  defp remove_balance(%Account{} = account, amount) do
+    new_balance = account.balance - amount
+
+    case new_balance >= account.limit do
+      true -> {:ok, Map.put(account, :balance, new_balance)}
+      false -> {:denied, "No funds"}
+    end
+  end
+
+  defp add_balance(%Account{} = account, amount) do
+    new_balance = account.balance + amount
+    Map.put(account, :balance, new_balance)
+  end
+
+  defp compare_operations(op1, op2) do
+    date_time_op1 = Map.get(op1, :date_time)
+    date_time_op2 = Map.get(op2, :date_time)
+    DateTime.diff(date_time_op1, date_time_op2, :millisecond) >= 0
+  end
+
+  defp update_operation_status(%Account{} = account, operation_id, new_status) do
+    new_operation = Map.put(Map.get(account.operations, operation_id), :status, new_status)
+    new_operations = Map.put(account.operations, operation_id, new_operation)
+    Map.put(account, :operations, new_operations)
+  end
+
+  defp process_recipient_data(%Account{} = account, %{} = data) do
+    custom_data = Map.delete(data, :recipients_data)
+    total_amount = Map.get(data, :amount)
+
+    Map.get(data, :recipients_data)
+    |> Stream.map(&update_recipient_data_amount(&1, total_amount))
+    |> Stream.map(&Operation.new(:transfer_out, Map.merge(custom_data, &1)))
+    |> Enum.reduce(account, fn operation, account -> register_operation(account, operation) end)
+  end
+
+  defp update_recipient_data_amount(%{} = recipient_data, total_amount) do
+    recipient_percentage = Map.get(recipient_data, :percentage, 1)
+    recipient_amount = round(total_amount * recipient_percentage)
+
+    Map.put_new(recipient_data, :amount, recipient_amount)
+    |> Map.delete(:percentage)
   end
 end

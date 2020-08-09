@@ -242,4 +242,40 @@ defmodule AccountTest do
     end
   end
 
+  test "transfer out list" do
+    bob_account = Account.new(%{balance: 10000})
+
+    data = %{
+      amount: 1000,
+      meta_data: "general meta_data",
+      date_time: ~U[2020-07-24 10:00:00Z],
+      recipients_data: [
+        %{percentage: 0.7, recipient_account_id: 2, other_data: "another extra data"},
+        %{percentage: 0.2, recipient_account_id: 3, meta_data: "specific meta_data"},
+        %{percentage: 0.1, recipient_account_id: 4}
+      ]
+    }
+
+    {:ok, bob_account} = Account.transfer_out(bob_account, data)
+
+    assert Account.balance(bob_account) === 9000
+
+    assert [
+             %Operation{
+               data: %{
+                 amount: 700,
+                 meta_data: "general meta_data",
+                 other_data: "another extra data"
+               },
+               type: :transfer_out,
+               status: :done
+             },
+             %Operation{
+               data: %{amount: 200, meta_data: "specific meta_data"},
+               type: :transfer_out,
+               status: :done
+             },
+             %Operation{data: %{amount: 100}, type: :transfer_out, status: :done}
+           ] = Account.operations(bob_account, ~D[2020-07-24])
+  end
 end

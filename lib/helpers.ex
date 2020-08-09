@@ -66,4 +66,10 @@ defmodule Helpers do
   defp process_validation_list(path) do
     path
   end
+
+  def is_date_between(date, date_ini, date_fin) do
+    ini_diff = Date.diff(date, date_ini)
+    fin_diff = Date.diff(date, date_fin)
+    ini_diff >= 0 && fin_diff <= 0
+  end
 end

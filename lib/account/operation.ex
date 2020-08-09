@@ -92,6 +92,19 @@ defmodule Operation do
     )
   end
 
+  def new(
+        :transfer_out,
+        %{amount: amount} = entry_data
+      )
+      when is_integer(amount) and amount > 0 do
+    {args, data} = separate_key_arguments(entry_data)
+
+    Map.merge(
+      %Operation{type: :transfer_out, data: data},
+      args
+    )
+  end
+
   @spec new(:transfer_in, %{amount: number(), sender_account_id: number} | map) ::
           Operation.t()
   def new(:transfer_in, %{amount: amount, sender_account_id: _sender_account_id} = entry_data)

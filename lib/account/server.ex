@@ -342,10 +342,11 @@ defmodule Account.Server do
       ) do
     case Account.transfer_out(current_state, data) do
       {:ok, new_state} ->
-        persist_data(new_state)
         sender_id = Map.get(new_state, :id)
-
+        
         {:ok, _, recipient_operation_id} = transfer_to_account(data, sender_id, recipient)
+
+        persist_data(new_state)
 
         {
           :reply,
