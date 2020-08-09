@@ -18,7 +18,7 @@ defmodule Operation do
   - Status: Atom that indicates if the operation suceeded or not
   """
   @type t() :: %Operation{date_time: Date.t(), type: atom(), data: map()}
-  defstruct date_time: DateTime.utc_now(), type: :type, data: %{}, status: :done
+  defstruct date_time: nil, type: :type, data: %{}, status: :done
 
   @spec list_to_map([{any(), any()}]) :: map
   defp list_to_map(list) do
@@ -32,6 +32,7 @@ defmodule Operation do
       entry_data
       |> Enum.filter(fn {key, _} -> Map.has_key?(%Operation{}, key) end)
       |> list_to_map()
+      |> Map.put_new(:date_time, DateTime.utc_now())
 
     data =
       entry_data

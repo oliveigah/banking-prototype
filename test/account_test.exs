@@ -184,7 +184,7 @@ defmodule AccountTest do
 
       assert [
                %Operation{data: %{amount: 5000}, type: :deposit, status: :done},
-               %Operation{data: %{amount: 3000}, type: :card_transaction, status: :done},
+               %Operation{data: %{amount: 3000}, type: :card_transaction, status: :refunded},
                %Operation{
                  data: %{amount: 3000, operation_to_refund_id: 2},
                  type: :refund,

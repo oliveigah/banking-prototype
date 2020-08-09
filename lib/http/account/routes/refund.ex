@@ -1,6 +1,6 @@
-defmodule Http.Account.Withdraw do
+defmodule Http.Account.Refund do
   @required_body %{
-    amount: &is_number/1
+    operation_to_refund_id: &is_number/1
   }
 
   @spec execute(map(), number()) :: {number(), map()}
@@ -23,7 +23,7 @@ defmodule Http.Account.Withdraw do
   defp execute_operation(parsed_body, account_id) do
     account_id
     |> Account.Cache.server_process()
-    |> Account.Server.withdraw(parsed_body)
+    |> Account.Server.refund(parsed_body)
   end
 
   defp generate_http_response(operation_response) do
@@ -50,6 +50,15 @@ defmodule Http.Account.Withdraw do
               new_balance: balance,
               operation_id: operation_id
             }
+          }
+        }
+
+      {:error, reason, _balance} ->
+        {
+          403,
+          %{
+            success: false,
+            message: reason
           }
         }
     end

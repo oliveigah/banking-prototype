@@ -149,11 +149,11 @@ defmodule Account do
     new_account =
       %Account{account | balance: account.balance + amount}
       |> register_operation(Operation.new(:deposit, data))
-    
+
     {:ok, new_account}
   end
 
-  @spec transfer_out(Account.t(), %{amount: number, recipient_account_id: any}) ::
+  @spec transfer_out(Account.t(), %{amount: number, recipient_account_id: number}) ::
           {:ok, Account.t()} | {:denied, String.t(), Account.t()}
   @doc """
   Register an event of transfer out and update de balance
@@ -328,6 +328,7 @@ defmodule Account do
                 Map.put(data, :amount, operation_to_refund.data.amount)
               )
             )
+            |> set_operation_status(operation_to_refund_id, :refunded)
 
           {:ok, new_account}
         else
@@ -337,6 +338,12 @@ defmodule Account do
       :error ->
         {:error, "Operation do not exists", account}
     end
+  end
+
+  defp set_operation_status(%Account{} = account, operation_id, new_status) do
+    new_operation = Map.put(Map.get(account.operations, operation_id), :status, new_status)
+    new_operations = Map.put(account.operations, operation_id, new_operation)
+    Map.put(account, :operations, new_operations)
   end
 
   @doc """
@@ -382,6 +389,13 @@ defmodule Account do
     account.operations
     |> Stream.filter(fn {_, operation} -> DateTime.to_date(operation.date_time) == date end)
     |> Enum.map(fn {_, operation} -> operation end)
+    |> Enum.sort(&compare_operations(&1, &2))
+  end
+
+  defp compare_operations(op1, op2) do
+    date_time_op1 = Map.get(op1, :date_time)
+    date_time_op2 = Map.get(op2, :date_time)
+    DateTime.diff(date_time_op1, date_time_op2, :millisecond) >= 0
   end
 
   defp is_date_between(date, date_ini, date_fin) do
@@ -393,9 +407,6 @@ defmodule Account do
   @doc """
   Get all the operations that happen between 2 dates
 
-  TODO: Change the code to this function be testable
-
-  ## Examples
   """
   @spec operations(Account.t(), Date.t(), Date.t()) :: [Operation.t()]
   def operations(%Account{} = account, ini_date, fin_date) do
@@ -404,5 +415,10 @@ defmodule Account do
       is_date_between(DateTime.to_date(operation.date_time), ini_date, fin_date)
     end)
     |> Enum.map(fn {_, operation} -> operation end)
+    |> Enum.sort(&compare_operations(&1, &2))
+  end
+
+  def operation(%Account{} = account, operation_id) do
+    Map.get(account.operations, operation_id)
   end
 end

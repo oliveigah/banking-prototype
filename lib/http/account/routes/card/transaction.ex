@@ -1,6 +1,7 @@
-defmodule Http.Account.Withdraw do
+defmodule Http.Account.Card.Transaction do
   @required_body %{
-    amount: &is_number/1
+    amount: &is_number/1,
+    card_id: &is_number/1
   }
 
   @spec execute(map(), number()) :: {number(), map()}
@@ -23,7 +24,7 @@ defmodule Http.Account.Withdraw do
   defp execute_operation(parsed_body, account_id) do
     account_id
     |> Account.Cache.server_process()
-    |> Account.Server.withdraw(parsed_body)
+    |> Account.Server.card_transaction(parsed_body)
   end
 
   defp generate_http_response(operation_response) do

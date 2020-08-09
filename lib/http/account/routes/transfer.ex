@@ -1,6 +1,7 @@
-defmodule Http.Account.Withdraw do
+defmodule Http.Account.Transfer do
   @required_body %{
-    amount: &is_number/1
+    amount: &is_number/1,
+    recipient_account_id: &is_number/1
   }
 
   @spec execute(map(), number()) :: {number(), map()}
@@ -23,19 +24,20 @@ defmodule Http.Account.Withdraw do
   defp execute_operation(parsed_body, account_id) do
     account_id
     |> Account.Cache.server_process()
-    |> Account.Server.withdraw(parsed_body)
+    |> Account.Server.transfer_out(parsed_body)
   end
 
   defp generate_http_response(operation_response) do
     case operation_response do
-      {:ok, new_balance, operation_id} ->
+      {:ok, new_balance, operation_id, recipient_operation_id} ->
         {201,
          %{
            success: true,
            response: %{
              approved: true,
              new_balance: new_balance,
-             operation_id: operation_id
+             operation_id: operation_id,
+             recipient_operation_id: recipient_operation_id
            }
          }}
 
