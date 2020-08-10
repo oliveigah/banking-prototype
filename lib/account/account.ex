@@ -183,7 +183,7 @@ defmodule Account do
 
   @spec transfer_out(
           Account.t(),
-          %{amount: number, recipients_data: []}
+          %{amount: number, recipients_data: list()}
         ) ::
           {:ok, Account.t(), [Operation.t()]}
           | {:denied, String.t(), Account.t(), Operation.t()}

@@ -90,6 +90,23 @@ defmodule Http.Account do
     end
   end
 
+  post("account/multi-transfer") do
+    authorization_result =
+      Plug.Conn.get_req_header(conn, "authorization")
+      |> List.first()
+      |> authorizer()
+
+    case authorization_result do
+      {:ok, account} ->
+        conn.body_params
+        |> Http.Account.MultiTransfer.execute(account)
+        |> send_http_response(conn)
+
+      :denied ->
+        send_authorization_error(conn)
+    end
+  end
+
   post("account/card/transaction") do
     authorization_result =
       Plug.Conn.get_req_header(conn, "authorization")

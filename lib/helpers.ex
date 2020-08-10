@@ -72,4 +72,25 @@ defmodule Helpers do
     fin_diff = Date.diff(date, date_fin)
     ini_diff >= 0 && fin_diff <= 0
   end
+
+  def reset_account_system() do
+    # Get the pids of all currently alive processes
+    accounts_used_pids =
+      DynamicSupervisor.which_children(Account.Cache)
+      |> Stream.map(fn entry ->
+        case entry do
+          {_, pid, :worker, [Account.Server]} -> pid
+          _ -> nil
+        end
+      end)
+      |> Enum.filter(fn ele -> ele !== nil end)
+
+    # Terminate all processes
+    Enum.each(accounts_used_pids, &Process.exit(&1, :clean_up))
+
+    # Reset the "database"
+    base_folder = Application.get_env(:banking, :database_base_folder)
+    File.rm_rf(base_folder)
+    :ok
+  end
 end

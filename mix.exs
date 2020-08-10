@@ -40,7 +40,8 @@ defmodule Banking.MixProject do
       {:ex_doc, "~> 0.22", only: :dev, runtime: false},
       {:cowboy, "~> 2.8"},
       {:plug_cowboy, "~> 2.3"},
-      {:poison, "~> 4.0"}
+      {:poison, "~> 4.0"},
+      {:httpoison, "~> 1.7"}
     ]
   end
 end
