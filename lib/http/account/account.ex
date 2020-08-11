@@ -84,6 +84,14 @@ defmodule Http.Account do
     |> send_http_response(conn)
   end
 
+  post("account/exchange") do
+    account = conn.assigns[:account_id]
+
+    conn.body_params
+    |> Http.Account.Exchange.execute(account)
+    |> send_http_response(conn)
+  end
+
   get("account/operations") do
     account = conn.assigns[:account_id]
 

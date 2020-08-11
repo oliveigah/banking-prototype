@@ -142,4 +142,62 @@ defmodule Operation do
       args
     )
   end
+
+  @spec new(
+          :exchange,
+          %{
+            current_amount: number,
+            current_currency: atom,
+            new_amount: number(),
+            new_currency: atom(),
+            exchange_rate: number
+          }
+          | map
+        ) :: Operation.t()
+  def new(
+        :exchange,
+        %{
+          current_amount: amount,
+          current_currency: _,
+          new_amount: _,
+          new_currency: _,
+          exchange_rate: _
+        } = entry_data
+      )
+      when is_integer(amount) and amount > 0 do
+    {args, data} = separate_key_arguments(entry_data)
+
+    Map.merge(
+      %Operation{type: :exchange, data: data},
+      args
+    )
+  end
+
+  @spec new(
+          :exchange,
+          %{
+            current_amount: number,
+            current_currency: atom,
+            new_currency: atom(),
+            status: :denied
+          }
+          | map
+        ) :: Operation.t()
+  def new(
+        :exchange,
+        %{
+          current_amount: amount,
+          current_currency: _,
+          new_currency: _,
+          status: :denied
+        } = entry_data
+      )
+      when is_integer(amount) and amount > 0 do
+    {args, data} = separate_key_arguments(entry_data)
+
+    Map.merge(
+      %Operation{type: :exchange, data: data},
+      args
+    )
+  end
 end

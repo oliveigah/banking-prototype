@@ -34,11 +34,11 @@ defmodule Account.Exchange do
     end
   end
 
-  def convert(current_currency, amount, new_currency) do
+  def convert(amount, current_currency, new_currency) do
     current_rate = get!(current_currency)
     new_rate = get!(new_currency)
-    exchange_rate = current_rate / new_rate
-    amount / exchange_rate
+    exchange_rate = 1 / (current_rate / new_rate)
+    {round(amount * exchange_rate), exchange_rate}
   end
 
   defmodule CurrencyError do

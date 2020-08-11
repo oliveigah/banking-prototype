@@ -1,8 +1,8 @@
-defmodule Http.Account.Transfer do
+defmodule Http.Account.Exchange do
   @required_body %{
-    amount: &is_number/1,
-    currency: &is_atom/1,
-    recipient_account_id: &is_number/1
+    current_amount: &is_number/1,
+    current_currency: &is_atom/1,
+    new_currency: &is_atom/1
   }
 
   @spec execute(map(), number()) :: {number(), map()}
@@ -25,20 +25,19 @@ defmodule Http.Account.Transfer do
   defp execute_operation(parsed_body, account_id) do
     account_id
     |> Account.Cache.server_process()
-    |> Account.Server.transfer_out(parsed_body)
+    |> Account.Server.exchange_balances(parsed_body)
   end
 
   defp generate_http_response(operation_response) do
     case operation_response do
-      {:ok, new_balance, operation_data, recipiet_operation_data} ->
+      {:ok, new_balance, operation_data} ->
         {201,
          %{
            success: true,
            response: %{
              approved: true,
-             new_balance: new_balance,
-             operation: operation_data,
-             recipient_operation_data: recipiet_operation_data
+             new_balances: new_balance,
+             operation: operation_data
            }
          }}
 
@@ -50,7 +49,7 @@ defmodule Http.Account.Transfer do
             response: %{
               approved: false,
               reason: reason,
-              new_balance: balance,
+              new_balances: balance,
               operation: operation_data
             }
           }

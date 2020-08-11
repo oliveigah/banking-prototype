@@ -176,6 +176,24 @@ defmodule Account.Server do
     GenServer.call(account_server, {:refund, data})
   end
 
+  @doc """
+  Register an exchange operation and update the balances using the current exchange rate
+
+  ## Examples
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 3000}})
+      iex> {
+      ...>  :ok,
+      ...>  %{BRL: 2000, USD: 183},
+      ...>  %Operation{type: :exchange, status: :done},
+      ...> } = Account.Server.exchange_balances(server_pid, %{current_amount: 1000, current_currency: :BRL, new_currency: :USD})
+  """
+  def exchange_balances(
+        account_server,
+        %{current_amount: _, current_currency: _, new_currency: _} = data
+      ) do
+    GenServer.call(account_server, {:exchange, data})
+  end
+
   @spec balance(pid, atom) :: number
   @doc """
   Get the current balance of the Account
@@ -418,6 +436,41 @@ defmodule Account.Server do
         {
           :reply,
           {:denied, reason, Account.balance(new_state, currency), operation_data},
+          new_state,
+          @idle_timeout
+        }
+    end
+  end
+
+  @impl GenServer
+  def handle_call(
+        {:exchange,
+         %{current_amount: _, current_currency: current_currency, new_currency: new_currency} =
+           data},
+        _from,
+        %Account{} = current_state
+      ) do
+    case Account.exchange_balances(current_state, data) do
+      {:ok, new_state, operation_data} ->
+        balances =
+          %{}
+          |> Map.put(current_currency, Account.balance(new_state, current_currency))
+          |> Map.put(new_currency, Account.balance(new_state, new_currency))
+
+        persist_data(new_state)
+        {:reply, {:ok, balances, operation_data}, new_state, @idle_timeout}
+
+      {:denied, reason, new_state, operation_data} ->
+        balances =
+          %{}
+          |> Map.put(current_currency, Account.balance(new_state, current_currency))
+          |> Map.put(new_currency, Account.balance(new_state, new_currency))
+
+        persist_data(new_state)
+
+        {
+          :reply,
+          {:denied, reason, balances, operation_data},
           new_state,
           @idle_timeout
         }

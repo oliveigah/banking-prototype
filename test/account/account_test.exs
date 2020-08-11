@@ -179,28 +179,44 @@ defmodule AccountTest do
     assert nil == Account.operation(bob_account, other_operation_id + 1)
   end
 
-  # test "account operations" do
-  #   bob_account = Account.new()
+  test "account operations" do
+    bob_account = Account.new()
 
-  #   with {:ok, bob_account, _} <-
-  #          Account.deposit(bob_account, %{amount: 5000, date_time: ~U[2020-07-24 10:00:00Z]}),
-  #        {:ok, bob_account, _} <-
-  #          Account.withdraw(bob_account, %{amount: 5000, date_time: ~U[2020-07-24 11:00:00Z]}),
-  #        {:denied, _, bob_account, _} <-
-  #          Account.withdraw(bob_account, %{amount: 5000, date_time: ~U[2020-07-26 10:00:00Z]}),
-  #        {:ok, bob_account, _} <-
-  #          Account.deposit(bob_account, %{amount: 5000, date_time: ~U[2020-07-27 10:00:00Z]}) do
-  #     assert [
-  #              %Operation{data: %{amount: 5000}, type: :withdraw, status: :done},
-  #              %Operation{data: %{amount: 5000}, type: :deposit, status: :done}
-  #            ] = Account.operations(bob_account, ~D[2020-07-24])
+    with {:ok, bob_account, _} <-
+           Account.deposit(bob_account, %{
+             amount: 5000,
+             currency: :BRL,
+             date_time: ~U[2020-07-24 10:00:00Z]
+           }),
+         {:ok, bob_account, _} <-
+           Account.withdraw(bob_account, %{
+             amount: 5000,
+             currency: :BRL,
+             date_time: ~U[2020-07-24 11:00:00Z]
+           }),
+         {:denied, _, bob_account, _} <-
+           Account.withdraw(bob_account, %{
+             amount: 5000,
+             currency: :BRL,
+             date_time: ~U[2020-07-26 10:00:00Z]
+           }),
+         {:ok, bob_account, _} <-
+           Account.deposit(bob_account, %{
+             amount: 5000,
+             currency: :BRL,
+             date_time: ~U[2020-07-27 10:00:00Z]
+           }) do
+      assert [
+               %Operation{data: %{amount: 5000, currency: :BRL}, type: :withdraw, status: :done},
+               %Operation{data: %{amount: 5000, currency: :BRL}, type: :deposit, status: :done}
+             ] = Account.operations(bob_account, ~D[2020-07-24])
 
-  #     assert [
-  #              %Operation{data: %{amount: 5000}, type: :deposit, status: :done},
-  #              %Operation{data: %{amount: 5000}, type: :withdraw, status: :denied}
-  #            ] = Account.operations(bob_account, ~D[2020-07-25], ~D[2020-07-27])
-  #   end
-  # end
+      assert [
+               %Operation{data: %{amount: 5000, currency: :BRL}, type: :deposit, status: :done},
+               %Operation{data: %{amount: 5000, currency: :BRL}, type: :withdraw, status: :denied}
+             ] = Account.operations(bob_account, ~D[2020-07-25], ~D[2020-07-27])
+    end
+  end
 
   test "transfer out list" do
     bob_account = Account.new(%{balances: %{BRL: 10000}})
@@ -253,5 +269,35 @@ defmodule AccountTest do
              type: :transfer_out,
              status: :done
            } = Enum.at(operations_list, 2)
+  end
+
+  test "exchange balances sucess" do
+    bob_account = Account.new(%{balances: %{USD: 1000, BRL: 0}})
+
+    {:ok, bob_account, operation} =
+      Account.exchange_balances(bob_account, %{
+        current_amount: 100,
+        current_currency: :USD,
+        new_currency: :BRL
+      })
+
+    assert Account.balances(bob_account) === %{USD: 900, BRL: 545}
+    assert Map.get(operation, :type) === :exchange
+    assert Map.get(operation, :status) === :done
+  end
+
+  test "exchange balances denied" do
+    bob_account = Account.new(%{balances: %{USD: 100, BRL: 0}})
+
+    {:denied, _reason, bob_account, operation} =
+      Account.exchange_balances(bob_account, %{
+        current_amount: 1000,
+        current_currency: :USD,
+        new_currency: :BRL
+      })
+
+    assert Account.balances(bob_account) === %{USD: 100, BRL: 0}
+    assert Map.get(operation, :type) === :exchange
+    assert Map.get(operation, :status) === :denied
   end
 end

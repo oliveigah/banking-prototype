@@ -326,6 +326,49 @@ defmodule Account do
   end
 
   @doc """
+  Register an event of exchange, update the balances based on exchange rates
+
+  ## Examples
+
+      iex> init_account = Account.new(%{balances: %{USD: 1000}})
+      iex> {
+      ...> :ok,
+      ...> %Account{balances: %{BRL: 545, USD: 900}},
+      ...> %Operation{type: :exchange, status: :done}
+      ...> } = Account.exchange_balances(init_account, %{current_amount: 100, current_currency: :USD, new_currency: :BRL})
+  """
+  def exchange_balances(
+        %Account{} = account,
+        %{current_amount: amount, current_currency: current_currency, new_currency: new_currency} =
+          data
+      ) do
+    case remove_balance(account, amount, current_currency) do
+      {:ok, new_account} ->
+        {new_amount, exchange_rate} =
+          Account.Exchange.convert(amount, current_currency, new_currency)
+
+        operation_custom_data =
+          data
+          |> Map.put(:exchange_rate, exchange_rate)
+          |> Map.put(:new_amount, new_amount)
+
+        operation = Operation.new(:exchange, operation_custom_data)
+
+        {new_account, operation_data} =
+          add_balance(new_account, new_amount, new_currency)
+          |> register_operation(operation)
+
+        {:ok, new_account, operation_data}
+
+      {:denied, reason} ->
+        operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
+        operation = Operation.new(:exchange, operation_custom_data)
+        {new_account, operation_data} = register_operation(account, operation)
+        {:denied, reason, new_account, operation_data}
+    end
+  end
+
+  @doc """
   Get the current balance of the account for the given currency
 
   ## Examples

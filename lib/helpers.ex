@@ -1,5 +1,5 @@
 defmodule Helpers do
-  @special_fields [:currency, :type]
+  @special_fields [:currency, :type, :current_currency, :new_currency]
   defp convert_special_values_to_atoms(%{} = body) do
     @special_fields
     |> Enum.reduce(body, fn field, final_body ->

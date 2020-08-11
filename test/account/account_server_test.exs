@@ -289,4 +289,125 @@ defmodule AccountServerTest do
              }
            ] = Account.Server.operations(mary_account_pid, ~D[2020-07-24])
   end
+
+  test "account server process operations #5" do
+    bob_account_pid = Account.Cache.server_process(1)
+
+    Account.Server.deposit(bob_account_pid, %{
+      amount: 1000,
+      currency: :USD,
+      date_time: ~U[2020-07-23 10:00:00Z]
+    })
+
+    Account.Server.exchange_balances(bob_account_pid, %{
+      current_amount: 500,
+      current_currency: :USD,
+      new_currency: :BRL,
+      date_time: ~U[2020-07-23 10:00:00Z]
+    })
+
+    assert Account.Server.balances(bob_account_pid) == %{USD: 500, BRL: 2725}
+
+    data = %{
+      amount: 1000,
+      meta_data: "general meta_data",
+      currency: :BRL,
+      date_time: ~U[2020-07-24 10:00:00Z],
+      recipients_data: [
+        %{percentage: 0.7, recipient_account_id: 2, other_data: "another extra data"},
+        %{percentage: 0.2, recipient_account_id: 3, meta_data: "specific meta_data"},
+        %{percentage: 0.1, recipient_account_id: 4}
+      ]
+    }
+
+    Account.Server.transfer_out(bob_account_pid, data)
+
+    assert Account.Server.balance(bob_account_pid, :BRL) == 1725
+
+    assert [
+             %Operation{
+               data: %{
+                 amount: 700,
+                 currency: :BRL,
+                 recipient_account_id: 2,
+                 meta_data: "general meta_data",
+                 other_data: "another extra data"
+               },
+               type: :transfer_out,
+               status: :done
+             },
+             %Operation{
+               data: %{
+                 amount: 200,
+                 currency: :BRL,
+                 recipient_account_id: 3,
+                 meta_data: "specific meta_data"
+               },
+               type: :transfer_out,
+               status: :done
+             },
+             %Operation{
+               data: %{
+                 amount: 100,
+                 currency: :BRL,
+                 recipient_account_id: 4,
+                 meta_data: "general meta_data"
+               },
+               type: :transfer_out,
+               status: :done
+             }
+           ] = Account.Server.operations(bob_account_pid, ~D[2020-07-24])
+
+    alice_account_pid = Account.Cache.server_process(2)
+
+    assert Account.Server.balance(alice_account_pid, :BRL) == 700
+
+    assert [
+             %Operation{
+               data: %{
+                 amount: 700,
+                 currency: :BRL,
+                 sender_account_id: 1,
+                 meta_data: "general meta_data",
+                 other_data: "another extra data"
+               },
+               type: :transfer_in,
+               status: :done
+             }
+           ] = Account.Server.operations(alice_account_pid, ~D[2020-07-24])
+
+    jhon_account_pid = Account.Cache.server_process(3)
+
+    assert Account.Server.balance(jhon_account_pid, :BRL) == 200
+
+    assert [
+             %Operation{
+               data: %{
+                 amount: 200,
+                 currency: :BRL,
+                 sender_account_id: 1,
+                 meta_data: "specific meta_data"
+               },
+               type: :transfer_in,
+               status: :done
+             }
+           ] = Account.Server.operations(jhon_account_pid, ~D[2020-07-24])
+
+    mary_account_pid = Account.Cache.server_process(4)
+
+    assert Account.Server.balance(mary_account_pid, :BRL) == 100
+
+    assert [
+             %Operation{
+               data: %{
+                 amount: 100,
+                 currency: :BRL,
+                 sender_account_id: 1,
+                 meta_data: "general meta_data"
+               },
+               type: :transfer_in,
+               status: :done
+             }
+           ] = Account.Server.operations(mary_account_pid, ~D[2020-07-24])
+  end
 end
