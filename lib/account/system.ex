@@ -3,6 +3,7 @@ defmodule Account.System do
     Supervisor.start_link(
       [
         Account.ProcessRegistry,
+        Account.Exchange,
         Account.Cache,
         Http.Account
       ],

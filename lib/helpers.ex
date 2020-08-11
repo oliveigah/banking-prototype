@@ -1,15 +1,44 @@
 defmodule Helpers do
-  def map_keys_string_to_atom(%{} = map) do
+  @special_fields [:currency, :type]
+  defp convert_special_values_to_atoms(%{} = body) do
+    @special_fields
+    |> Enum.reduce(body, fn field, final_body ->
+      special_value = Map.get(body, field)
+
+      if special_value !== nil do
+        Map.put(final_body, field, String.to_atom(special_value))
+      else
+        final_body
+      end
+    end)
+  end
+
+  def parse_body_request(%{} = map) do
     map
-    |> Map.new(fn {k, v} -> {String.to_atom(k), map_keys_string_to_atom(v)} end)
+    |> Map.new(fn {k, v} -> {String.to_atom(k), parse_body_request(v)} end)
+    |> convert_special_values_to_atoms
   end
 
-  def map_keys_string_to_atom([_ | _] = list) do
+  def parse_body_request([_ | _] = list) do
     list
-    |> Enum.map(&map_keys_string_to_atom/1)
+    |> Enum.map(&parse_body_request/1)
   end
 
-  def map_keys_string_to_atom(value) do
+  def parse_body_request(value) do
+    value
+  end
+
+  def parse_body_response(%{} = map) do
+    map
+    |> Map.new(fn {k, v} -> {String.to_atom(k), parse_body_response(v)} end)
+  end
+
+  def parse_body_response([_ | _] = list) do
+    list
+    |> Enum.map(&parse_body_response/1)
+  end
+
+  def parse_body_response(value) do
     value
   end
 
@@ -18,7 +47,7 @@ defmodule Helpers do
   def validate_body(%{} = required_fields_spec, %{} = parsed_body, key_prefix) do
     required_fields_spec
     |> Stream.map(fn {template_key, template_value} ->
-      body_value = Map.get(parsed_body, template_key)
+      body_value = Map.get(parsed_body, template_key, make_ref())
 
       if is_function(template_value) do
         {"#{key_prefix}.#{template_key}", template_value.(body_value)}

@@ -1,4 +1,4 @@
-defmodule Http.Account.Balance do
+defmodule Http.Account.Balances do
   @spec execute(number()) :: {number(), map()}
   def execute(account_id) do
     account_id
@@ -9,7 +9,7 @@ defmodule Http.Account.Balance do
   defp execute_operation(account_id) do
     account_id
     |> Account.Cache.server_process()
-    |> Account.Server.balance()
+    |> Account.Server.balances()
   end
 
   defp generate_http_response(operation_response) do

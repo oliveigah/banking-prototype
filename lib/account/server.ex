@@ -24,171 +24,169 @@ defmodule Account.Server do
 
   - Should not be called directly, instead use `Account.Cache.server_process/2`
   - The initial state of non persisted non args `Account.Server` processes is the result of `Account.new/0`
-
-  ## Examples
-      iex> server_pid = Account.Cache.server_process(1)
-      iex> is_pid(server_pid)
-      true
-
-      iex> server_pid = Account.Cache.server_process(1, %{balance: 5000, limit: -1000})
-      iex> Account.Server.balance(server_pid)
-      5000
   """
   def start_link(%{id: account_id} = args) do
     GenServer.start_link(Account.Server, args, name: via_tuple(account_id))
   end
 
-  @spec withdraw(pid, %{amount: number}) ::
+  @spec withdraw(pid, %{amount: non_neg_integer(), currency: atom}) ::
           {:ok, number, Operation.t()} | {:denied, String.t(), number, Operation.t()}
   @doc """
   Withdraw from the account balance
 
   ## Examples
-      iex> server_pid = Account.Cache.server_process(1, %{balance: 3000})
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 3000}})
       iex> {
       ...>  :ok,
       ...>  1000,
-      ...>  %Operation{type: :withdraw, status: :done, data: %{amount: 2000}}
-      ...> } = Account.Server.withdraw(server_pid, %{amount: 2000})
+      ...>  %Operation{type: :withdraw, status: :done, data: %{amount: 2000, currency: :BRL}}
+      ...> } = Account.Server.withdraw(server_pid, %{amount: 2000, currency: :BRL})
 
-      iex> server_pid = Account.Cache.server_process(1, %{balance: 500})
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 500}})
       iex> {
       ...>  :denied,
       ...>  reason,
       ...>  500,
-      ...>  %Operation{type: :withdraw, status: :denied, data: %{amount: 2000}}
-      ...> } = Account.Server.withdraw(server_pid, %{amount: 2000})
+      ...>  %Operation{type: :withdraw, status: :denied, data: %{amount: 2000, currency: :BRL}}
+      ...> } = Account.Server.withdraw(server_pid, %{amount: 2000, currency: :BRL})
   """
-  def withdraw(account_server, %{amount: _amount} = data) do
+  def withdraw(account_server, %{amount: _} = data) do
     GenServer.call(account_server, {:withdraw, data})
   end
 
-  @spec deposit(pid, %{amount: number()} | map) :: {:ok, number, Operation.t()}
+  def balances(account_server) do
+    GenServer.call(account_server, :balances)
+  end
+
+  @spec deposit(pid, %{amount: non_neg_integer(), currency: atom}) :: {:ok, number, Operation.t()}
   @doc """
   Deposit into the account balance
 
   ## Examples
-      iex> server_pid = Account.Cache.server_process(1, %{balance: 3000})
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 3000}})
       iex> {
       ...>  :ok,
       ...>  5000,
-      ...>  %Operation{type: :deposit, status: :done, data: %{amount: 2000}}
-      ...> } = Account.Server.deposit(server_pid, %{amount: 2000})
+      ...>  %Operation{type: :deposit, status: :done, data: %{amount: 2000, currency: :BRL}}
+      ...> } = Account.Server.deposit(server_pid, %{amount: 2000, currency: :BRL})
   """
-  def deposit(account_server, %{amount: _amount} = data) do
+  def deposit(account_server, %{amount: _, currency: _} = data) do
     GenServer.call(account_server, {:deposit, data})
   end
 
-  @spec transfer_in(pid, %{amount: number, sender_account_id: number}) ::
+  @spec transfer_in(pid, %{amount: non_neg_integer, currency: atom, sender_account_id: number}) ::
           {:ok, number, Operation.t()}
   @doc """
   Deposit into the account balance
 
   ## Examples
-      iex> server_pid = Account.Cache.server_process(1, %{balance: 3000})
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 3000}})
       iex> {
       ...>  :ok,
       ...>  5000,
-      ...>  %Operation{type: :transfer_in, status: :done, data: %{amount: 2000}}
-      ...> } = Account.Server.transfer_in(server_pid, %{amount: 2000, sender_account_id: 2})
+      ...>  %Operation{type: :transfer_in, status: :done, data: %{amount: 2000, currency: :BRL}}
+      ...> } = Account.Server.transfer_in(server_pid, %{amount: 2000, currency: :BRL, sender_account_id: 2})
   """
-  def transfer_in(account_server, %{amount: _amount, sender_account_id: _sender} = data) do
+  def transfer_in(account_server, %{amount: _, currency: _, sender_account_id: _} = data) do
     GenServer.call(account_server, {:transfer_in, data})
   end
 
-  @spec transfer_out(pid, %{amount: number, recipient_account_id: number}) ::
+  @spec transfer_out(pid, %{amount: non_neg_integer, currency: atom, recipient_account_id: number}) ::
           {:ok, number, number, Operation.t(), Operation.t()}
           | {:denied, String.t(), number, Operation.t()}
   @doc """
   Transfer resources to another account
 
   ## Examples
-      iex> server_pid = Account.Cache.server_process(1, %{balance: 3000})
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 3000}})
       iex> {
       ...>  :ok,
       ...>  1000,
-      ...>  %Operation{type: :transfer_out, status: :done, data: %{amount: 2000, recipient_account_id: 2}},
-      ...>  %Operation{type: :transfer_in, status: :done, data: %{amount: 2000, sender_account_id: 1}}
-      ...> } = Account.Server.transfer_out(server_pid, %{amount: 2000, recipient_account_id: 2})
+      ...>  %Operation{type: :transfer_out, status: :done, data: %{amount: 2000,currency: :BRL, recipient_account_id: 2}},
+      ...>  %Operation{type: :transfer_in, status: :done, data: %{amount: 2000,currency: :BRL, sender_account_id: 1}}
+      ...> } = Account.Server.transfer_out(server_pid, %{amount: 2000, currency: :BRL, recipient_account_id: 2})
 
-      iex> server_pid = Account.Cache.server_process(1, %{balance: 500})
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 500}})
       iex> {
       ...>  :denied,
       ...>  reason,
       ...>  500,
-      ...>  %Operation{type: :transfer_out, status: :denied, data: %{amount: 2000}}
-      ...> } = Account.Server.transfer_out(server_pid, %{amount: 2000, recipient_account_id: 2})
+      ...>  %Operation{type: :transfer_out, status: :denied, data: %{amount: 2000, currency: :BRL}}
+      ...> } = Account.Server.transfer_out(server_pid, %{amount: 2000, currency: :BRL, recipient_account_id: 2})
   """
-  def transfer_out(account_server, %{amount: _amount, recipient_account_id: _recipient} = data) do
-    GenServer.call(account_server, {:transfer_out, data})
-  end
-
-  @spec transfer_out(pid, %{amount: number, recipients_data: list()} | map) ::
-          {:ok, number, number, [Operation.t()], [Operation.t()]}
-          | {:denied, String.t(), number, Operation.t()}
   def transfer_out(
         account_server,
-        %{amount: _amount, recipients_data: [_ | _]} = data
+        %{amount: _, currency: _, recipient_account_id: _recipient} = data
       ) do
     GenServer.call(account_server, {:transfer_out, data})
   end
 
-  @spec card_transaction(pid, %{amount: number, card_id: number}) ::
+  @spec transfer_out(pid, %{amount: number, currency: atom, recipients_data: list()} | map) ::
+          {:ok, number, number, [Operation.t()], [Operation.t()]}
+          | {:denied, String.t(), number, Operation.t()}
+  def transfer_out(
+        account_server,
+        %{amount: _, currency: _, recipients_data: [_ | _]} = data
+      ) do
+    GenServer.call(account_server, {:transfer_out, data})
+  end
+
+  @spec card_transaction(pid, %{amount: number, currency: atom, card_id: number}) ::
           {:ok, number, Operation.t()} | {:denied, String.t(), number, Operation.t()}
   @doc """
-  Debit card operation that uses resources from the account balance
+  Debit card operation that uses resources from the account balances
 
   ## Examples
-      iex> server_pid = Account.Cache.server_process(1, %{balance: 3000})
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 3000}})
       iex> {
       ...>  :ok,
       ...>  1000,
-      ...>  %Operation{type: :card_transaction, status: :done, data: %{amount: 2000, card_id: 1}},
-      ...> } = Account.Server.card_transaction(server_pid, %{amount: 2000, card_id: 1})
+      ...>  %Operation{type: :card_transaction, status: :done, data: %{amount: 2000, currency: :BRL, card_id: 1}},
+      ...> } = Account.Server.card_transaction(server_pid, %{amount: 2000, currency: :BRL, card_id: 1})
 
-      iex> server_pid = Account.Cache.server_process(1, %{balance: 500})
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 500}})
       iex> {
       ...>  :denied,
       ...>  reason,
       ...>  500,
-      ...>  %Operation{type: :card_transaction, status: :denied, data: %{amount: 2000}}
-      ...> } = Account.Server.card_transaction(server_pid, %{amount: 2000, card_id: 1})
+      ...>  %Operation{type: :card_transaction, status: :denied, data: %{amount: 2000, currency: :BRL}}
+      ...> } = Account.Server.card_transaction(server_pid, %{amount: 2000, currency: :BRL, card_id: 1})
   """
-  def card_transaction(account_server, %{amount: _amount, card_id: _card} = data) do
+  def card_transaction(account_server, %{amount: _, currency: _, card_id: _} = data) do
     GenServer.call(account_server, {:card_transaction, data})
   end
 
   @spec refund(pid, %{operation_to_refund_id: any}) ::
-          {:ok, number, number()}
+          {:ok, map, Operation.t()}
           | {:denied, String.t(), number(), Operation.t()}
           | {:error, String.t(), Operation.t()}
   @doc """
   Register a refund operation, restore the amount to balance and update operation status to `:refunded`
 
   ## Examples
-      iex> server_pid = Account.Cache.server_process(1, %{balance: 3000})
-      iex> Account.Server.card_transaction(server_pid, %{amount: 2000, card_id: 1})
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 3000}})
+      iex> Account.Server.card_transaction(server_pid, %{amount: 2000, currency: :BRL, card_id: 1})
       iex> {
       ...>  :ok,
-      ...>  3000,
+      ...>  %{BRL: 3000},
       ...>  %Operation{type: :refund, status: :done, data: %{operation_to_refund_id: 1}},
       ...> } = Account.Server.refund(server_pid, %{operation_to_refund_id: 1})
   """
-  def refund(account_server, %{operation_to_refund_id: _operation} = data) do
+  def refund(account_server, %{operation_to_refund_id: _} = data) do
     GenServer.call(account_server, {:refund, data})
   end
 
-  @spec balance(pid) :: any
+  @spec balance(pid, atom) :: number
   @doc """
   Get the current balance of the Account
 
   ## Examples
-      iex> server_pid = Account.Cache.server_process(1, %{balance: 3000})
-      iex> Account.Server.balance(server_pid)
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 3000}})
+      iex> Account.Server.balance(server_pid, :BRL)
       3000
   """
-  def balance(account_server) do
-    GenServer.call(account_server, :balance)
+  def balance(account_server, currency) do
+    GenServer.call(account_server, {:balance, currency})
   end
 
   @spec operations(pid, Date.t()) :: [Operation.t()]
@@ -196,13 +194,13 @@ defmodule Account.Server do
   Get the list of operations that occur in a specific date
 
   ## Examples
-      iex> server_pid = Account.Cache.server_process(1, %{balance: 2000})
-      iex> Account.Server.withdraw(server_pid, %{amount: 300, date_time: ~U[2020-07-23 10:00:00Z]})
-      iex> Account.Server.withdraw(server_pid, %{amount: 700, date_time: ~U[2020-07-24 11:00:00Z]})
-      iex> Account.Server.withdraw(server_pid, %{amount: 1900, date_time: ~U[2020-07-24 12:00:00Z]})
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 2000}})
+      iex> Account.Server.withdraw(server_pid, %{amount: 300, currency: :BRL, date_time: ~U[2020-07-23 10:00:00Z]})
+      iex> Account.Server.withdraw(server_pid, %{amount: 700, currency: :BRL, date_time: ~U[2020-07-24 11:00:00Z]})
+      iex> Account.Server.withdraw(server_pid, %{amount: 1900, currency: :BRL, date_time: ~U[2020-07-24 12:00:00Z]})
       iex> [
-      ...>  %Operation{type: :withdraw, data: %{amount: 1900}, status: :denied},
-      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done}
+      ...>  %Operation{type: :withdraw, data: %{amount: 1900, currency: :BRL}, status: :denied},
+      ...>  %Operation{type: :withdraw, data: %{amount: 700, currency: :BRL}, status: :done}
       ...> ] = Account.Server.operations(server_pid, ~D[2020-07-24])
   """
   def operations(account_server, date) do
@@ -214,13 +212,13 @@ defmodule Account.Server do
   Get the list of operations that occur betweem 2 dates, ordered by occurence date time
 
   ## Examples
-      iex> server_pid = Account.Cache.server_process(1, %{balance: 2000})
-      iex> Account.Server.withdraw(server_pid, %{amount: 300, date_time: ~U[2020-07-23 10:00:00Z]})
-      iex> Account.Server.withdraw(server_pid, %{amount: 700, date_time: ~U[2020-07-24 11:00:00Z]})
-      iex> Account.Server.withdraw(server_pid, %{amount: 1900, date_time: ~U[2020-07-25 12:00:00Z]})
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 2000}})
+      iex> Account.Server.withdraw(server_pid, %{amount: 300, currency: :BRL, date_time: ~U[2020-07-23 10:00:00Z]})
+      iex> Account.Server.withdraw(server_pid, %{amount: 700, currency: :BRL, date_time: ~U[2020-07-24 11:00:00Z]})
+      iex> Account.Server.withdraw(server_pid, %{amount: 1900, currency: :BRL, date_time: ~U[2020-07-25 12:00:00Z]})
       iex> [
-      ...>  %Operation{type: :withdraw, data: %{amount: 700}, status: :done},
-      ...>  %Operation{type: :withdraw, data: %{amount: 300}, status: :done}
+      ...>  %Operation{type: :withdraw, data: %{amount: 700, currency: :BRL}, status: :done},
+      ...>  %Operation{type: :withdraw, data: %{amount: 300, currency: :BRL}, status: :done}
       ...> ] = Account.Server.operations(server_pid, ~D[2020-07-23], ~D[2020-07-24])
   """
   def operations(account_server, date_ini, date_fin) do
@@ -246,10 +244,10 @@ defmodule Account.Server do
 
   ## Examples
       iex> server_pid = Account.Cache.server_process(123)
-      iex> Account.Server.deposit(server_pid, %{amount: 1000})
+      iex> Account.Server.deposit(server_pid, %{amount: 1000, currency: :BRL})
       iex> %Operation{
       ...>   type: :deposit,
-      ...>   data: %{amount: 1000},
+      ...>   data: %{amount: 1000, currency: :BRL},
       ...>   status: :done
       ...> } = Account.Server.operation(server_pid, 1)
 
@@ -264,8 +262,8 @@ defmodule Account.Server do
   end
 
   @impl GenServer
-  def handle_call(:balance, _from, %Account{} = current_state) do
-    {:reply, Account.balance(current_state), current_state, @idle_timeout}
+  def handle_call({:balance, currency}, _from, %Account{} = current_state) do
+    {:reply, Account.balance(current_state, currency), current_state, @idle_timeout}
   end
 
   @impl GenServer
@@ -283,18 +281,24 @@ defmodule Account.Server do
   end
 
   @impl GenServer
-  def handle_call({:withdraw, %{amount: _amount} = data}, _from, %Account{} = current_state) do
+  def handle_call(
+        {:withdraw, %{amount: _, currency: currency} = data},
+        _from,
+        %Account{} = current_state
+      ) do
     case Account.withdraw(current_state, data) do
       {:ok, new_state, operation_data} ->
         persist_data(new_state)
-        {:reply, {:ok, new_state.balance, operation_data}, new_state, @idle_timeout}
+
+        {:reply, {:ok, Account.balance(new_state, currency), operation_data}, new_state,
+         @idle_timeout}
 
       {:denied, reason, new_state, operation_data} ->
         persist_data(new_state)
 
         {
           :reply,
-          {:denied, reason, new_state.balance, operation_data},
+          {:denied, reason, Account.balance(new_state, currency), operation_data},
           new_state,
           @idle_timeout
         }
@@ -302,26 +306,34 @@ defmodule Account.Server do
   end
 
   @impl GenServer
-  def handle_call({:deposit, %{amount: _amount} = data}, _from, %Account{} = current_state) do
+  def handle_call(
+        {:deposit, %{amount: _, currency: currency} = data},
+        _from,
+        %Account{} = current_state
+      ) do
     {:ok, new_state, operation_data} = Account.deposit(current_state, data)
     persist_data(new_state)
-    {:reply, {:ok, new_state.balance, operation_data}, new_state, @idle_timeout}
+
+    {:reply, {:ok, Account.balance(new_state, currency), operation_data}, new_state,
+     @idle_timeout}
   end
 
   @impl GenServer
   def handle_call(
-        {:transfer_in, %{amount: _amount, sender_account_id: _sender} = data},
+        {:transfer_in, %{amount: _, currency: currency, sender_account_id: _} = data},
         _from,
         %Account{} = current_state
       ) do
     {:ok, new_state, operation_data} = Account.transfer_in(current_state, data)
     persist_data(new_state)
-    {:reply, {:ok, new_state.balance, operation_data}, new_state, @idle_timeout}
+
+    {:reply, {:ok, Account.balance(new_state, currency), operation_data}, new_state,
+     @idle_timeout}
   end
 
   @impl GenServer
   def handle_call(
-        {:transfer_out, %{amount: _amount, recipient_account_id: recipient} = data},
+        {:transfer_out, %{amount: _, currency: currency, recipient_account_id: recipient} = data},
         _from,
         %Account{} = current_state
       ) do
@@ -335,7 +347,7 @@ defmodule Account.Server do
 
         {
           :reply,
-          {:ok, new_state.balance, operation_data, recipient_operation_data},
+          {:ok, Account.balance(new_state, currency), operation_data, recipient_operation_data},
           new_state,
           @idle_timeout
         }
@@ -345,7 +357,7 @@ defmodule Account.Server do
 
         {
           :reply,
-          {:denied, reason, new_state.balance, operation_data},
+          {:denied, reason, Account.balance(new_state, currency), operation_data},
           new_state,
           @idle_timeout
         }
@@ -354,7 +366,8 @@ defmodule Account.Server do
 
   @impl GenServer
   def handle_call(
-        {:transfer_out, %{amount: _amount, recipients_data: [_ | _] = recipients_data} = data},
+        {:transfer_out,
+         %{amount: _, currency: currency, recipients_data: [_ | _] = recipients_data} = data},
         _from,
         %Account{} = current_state
       ) do
@@ -368,7 +381,8 @@ defmodule Account.Server do
 
         {
           :reply,
-          {:ok, new_state.balance, operation_data_list, recipients_operations_list},
+          {:ok, Account.balance(new_state, currency), operation_data_list,
+           recipients_operations_list},
           new_state,
           @idle_timeout
         }
@@ -378,7 +392,7 @@ defmodule Account.Server do
 
         {
           :reply,
-          {:denied, reason, new_state.balance, operation_data},
+          {:denied, reason, Account.balance(new_state, currency), operation_data},
           new_state,
           @idle_timeout
         }
@@ -387,21 +401,23 @@ defmodule Account.Server do
 
   @impl GenServer
   def handle_call(
-        {:card_transaction, %{amount: _amount, card_id: _card} = data},
+        {:card_transaction, %{amount: _, currency: currency, card_id: _} = data},
         _from,
         %Account{} = current_state
       ) do
     case Account.card_transaction(current_state, data) do
       {:ok, new_state, operation_data} ->
         persist_data(new_state)
-        {:reply, {:ok, new_state.balance, operation_data}, new_state, @idle_timeout}
+
+        {:reply, {:ok, Account.balance(new_state, currency), operation_data}, new_state,
+         @idle_timeout}
 
       {:denied, reason, new_state, operation_data} ->
         persist_data(new_state)
 
         {
           :reply,
-          {:denied, reason, new_state.balance, operation_data},
+          {:denied, reason, Account.balance(new_state, currency), operation_data},
           new_state,
           @idle_timeout
         }
@@ -410,18 +426,24 @@ defmodule Account.Server do
 
   @impl GenServer
   def handle_call(
-        {:refund, %{operation_to_refund_id: _operation} = data},
+        {:refund, %{operation_to_refund_id: _operation_to_refund_id} = data},
         _from,
         %Account{} = current_state
       ) do
     case Account.refund(current_state, data) do
       {:ok, new_state, operation_data} ->
         persist_data(new_state)
-        {:reply, {:ok, new_state.balance, operation_data}, new_state, @idle_timeout}
+
+        {:reply, {:ok, Account.balances(new_state), operation_data}, new_state, @idle_timeout}
 
       {:error, reason, new_state} ->
-        {:reply, {:error, reason, new_state.balance}, new_state, @idle_timeout}
+        {:reply, {:error, reason, Account.balances(new_state)}, new_state, @idle_timeout}
     end
+  end
+
+  @impl GenServer
+  def handle_call(:balances, _from, %Account{} = current_state) do
+    {:reply, Account.balances(current_state), current_state, @idle_timeout}
   end
 
   @impl GenServer
@@ -448,14 +470,14 @@ defmodule Account.Server do
   end
 
   defp transfer_to_account_list(
-         %{amount: total_amount} = data,
+         %{amount: total_} = data,
          sender_id,
          [_ | _] = recipients_data
        ) do
     parsed_recipients_data =
       recipients_data
       |> Stream.map(&Map.merge(data, &1))
-      |> Stream.map(&calculate_operation_amount(&1, total_amount))
+      |> Stream.map(&calculate_operation_(&1, total_))
       |> Enum.map(&remove_fields(&1, [:percentage, :recipients_data]))
 
     parsed_recipients_data
@@ -465,9 +487,9 @@ defmodule Account.Server do
     |> Enum.map(&Task.await/1)
   end
 
-  defp calculate_operation_amount(%{} = data, total_amount) do
+  defp calculate_operation_(%{} = data, total_) do
     percentage = Map.get(data, :percentage)
-    Map.put(data, :amount, round(total_amount * percentage))
+    Map.put(data, :amount, round(total_ * percentage))
   end
 
   defp transfer_to_account(%{amount: amount} = data, sender_id, recipient_id) do

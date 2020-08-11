@@ -1,11 +1,11 @@
 defmodule Http.Account.Deposit do
   @required_body %{
-    amount: &is_number/1
+    amount: &is_number/1,
+    currency: &is_atom/1
   }
 
   def execute(entry_body, account_id) do
-    parsed_body = Helpers.map_keys_string_to_atom(entry_body)
-
+    parsed_body = Helpers.parse_body_request(entry_body)
     error_list = Helpers.validate_body(@required_body, parsed_body)
 
     case error_list do
@@ -15,7 +15,7 @@ defmodule Http.Account.Deposit do
         |> generate_http_response()
 
       non_empty ->
-        {400, %{success: false, message: "Validation Error", details: non_empty}}
+        raise(Http.Account.ValidationError, non_empty)
     end
   end
 

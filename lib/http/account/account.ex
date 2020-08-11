@@ -2,6 +2,7 @@ defmodule Http.Account do
   use Plug.Router
   use Plug.ErrorHandler
 
+  plug(Http.Account.Authorizer)
   plug(:match)
   plug(Plug.Parsers, parsers: [:json], json_decoder: Poison)
   plug(:dispatch)
@@ -23,171 +24,95 @@ defmodule Http.Account do
     |> Plug.Conn.send_resp(status, Poison.encode!(result_body))
   end
 
-  defp send_authorization_error(conn) do
-    send_http_response({401, %{success: false, message: "Authorization Error"}}, conn)
-  end
-
-  defp authorizer(token) do
-    try do
-      {:ok, String.to_integer(token)}
-    rescue
-      _ -> :denied
-    end
-  end
-
-  def handle_errors(conn, %{kind: kind, reason: _reason, stack: _stack}) do
-    send_http_response({500, %{success: false, message: kind}}, conn)
+  def handle_errors(conn, %{kind: _kind, reason: reason, stack: _stack}) do
+    send_http_response(
+      {Map.get(reason, :status_code, 500),
+       %{
+         success: false,
+         message: Map.get(reason, :message, "Unkown"),
+         details: Map.get(reason, :details, "Unkown")
+       }},
+      conn
+    )
   end
 
   post("account/deposit") do
-    authorization_result =
-      Plug.Conn.get_req_header(conn, "authorization")
-      |> List.first()
-      |> authorizer()
+    account = conn.assigns[:account_id]
 
-    case authorization_result do
-      {:ok, account} ->
-        conn.body_params
-        |> Http.Account.Deposit.execute(account)
-        |> send_http_response(conn)
-
-      :denied ->
-        send_authorization_error(conn)
-    end
+    conn.body_params
+    |> Http.Account.Deposit.execute(account)
+    |> send_http_response(conn)
   end
 
   post("account/withdraw") do
-    authorization_result =
-      Plug.Conn.get_req_header(conn, "authorization")
-      |> List.first()
-      |> authorizer()
+    account = conn.assigns[:account_id]
 
-    case authorization_result do
-      {:ok, account} ->
-        conn.body_params
-        |> Http.Account.Withdraw.execute(account)
-        |> send_http_response(conn)
-
-      :denied ->
-        send_authorization_error(conn)
-    end
+    conn.body_params
+    |> Http.Account.Withdraw.execute(account)
+    |> send_http_response(conn)
   end
 
   post("account/transfer") do
-    authorization_result =
-      Plug.Conn.get_req_header(conn, "authorization")
-      |> List.first()
-      |> authorizer()
+    account = conn.assigns[:account_id]
 
-    case authorization_result do
-      {:ok, account} ->
-        conn.body_params
-        |> Http.Account.Transfer.execute(account)
-        |> send_http_response(conn)
-
-      :denied ->
-        send_authorization_error(conn)
-    end
+    conn.body_params
+    |> Http.Account.Transfer.execute(account)
+    |> send_http_response(conn)
   end
 
   post("account/multi-transfer") do
-    authorization_result =
-      Plug.Conn.get_req_header(conn, "authorization")
-      |> List.first()
-      |> authorizer()
+    account = conn.assigns[:account_id]
 
-    case authorization_result do
-      {:ok, account} ->
-        conn.body_params
-        |> Http.Account.MultiTransfer.execute(account)
-        |> send_http_response(conn)
-
-      :denied ->
-        send_authorization_error(conn)
-    end
+    conn.body_params
+    |> Http.Account.MultiTransfer.execute(account)
+    |> send_http_response(conn)
   end
 
   post("account/card/transaction") do
-    authorization_result =
-      Plug.Conn.get_req_header(conn, "authorization")
-      |> List.first()
-      |> authorizer()
+    account = conn.assigns[:account_id]
 
-    case authorization_result do
-      {:ok, account} ->
-        conn.body_params
-        |> Http.Account.Card.Transaction.execute(account)
-        |> send_http_response(conn)
-
-      :denied ->
-        send_authorization_error(conn)
-    end
+    conn.body_params
+    |> Http.Account.Card.Transaction.execute(account)
+    |> send_http_response(conn)
   end
 
   post("account/refund") do
-    authorization_result =
-      Plug.Conn.get_req_header(conn, "authorization")
-      |> List.first()
-      |> authorizer()
+    account = conn.assigns[:account_id]
 
-    case authorization_result do
-      {:ok, account} ->
-        conn.body_params
-        |> Http.Account.Refund.execute(account)
-        |> send_http_response(conn)
-
-      :denied ->
-        send_authorization_error(conn)
-    end
+    conn.body_params
+    |> Http.Account.Refund.execute(account)
+    |> send_http_response(conn)
   end
 
   get("account/operations") do
-    authorization_result =
-      Plug.Conn.get_req_header(conn, "authorization")
-      |> List.first()
-      |> authorizer()
+    account = conn.assigns[:account_id]
 
-    case authorization_result do
-      {:ok, account} ->
-        conn.params
-        |> Http.Account.Operations.execute(account)
-        |> send_http_response(conn)
-
-      :denied ->
-        send_authorization_error(conn)
-    end
+    conn.params
+    |> Http.Account.Operations.execute(account)
+    |> send_http_response(conn)
   end
 
   get("account/operation") do
-    authorization_result =
-      Plug.Conn.get_req_header(conn, "authorization")
-      |> List.first()
-      |> authorizer()
+    account = conn.assigns[:account_id]
 
-    case authorization_result do
-      {:ok, account} ->
-        conn.params
-        |> Http.Account.Operation.execute(account)
-        |> send_http_response(conn)
-
-      :denied ->
-        send_authorization_error(conn)
-    end
+    conn.params
+    |> Http.Account.Operation.execute(account)
+    |> send_http_response(conn)
   end
 
-  get("account/balance") do
-    authorization_result =
-      Plug.Conn.get_req_header(conn, "authorization")
-      |> List.first()
-      |> authorizer()
+  get("account/balances") do
+    account = conn.assigns[:account_id]
 
-    case authorization_result do
-      {:ok, account} ->
-        Http.Account.Balance.execute(account)
-        |> send_http_response(conn)
+    Http.Account.Balances.execute(account)
+    |> send_http_response(conn)
+  end
 
-      :denied ->
-        send_authorization_error(conn)
+  defmodule ValidationError do
+    defexception [:details, message: "ValidationError", status_code: 400]
+
+    @impl true
+    def exception(missing_fields) do
+      %Http.Account.ValidationError{details: missing_fields}
     end
   end
 end
