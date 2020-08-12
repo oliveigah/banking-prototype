@@ -1,6 +1,6 @@
 defmodule Metrics.Scheduler do
   use GenServer
-  @interval_time_ms :timer.seconds(60)
+  @interval_time_ms :timer.seconds(300)
   def start_link(_arg) do
     GenServer.start_link(__MODULE__, nil, name: __MODULE__)
   end

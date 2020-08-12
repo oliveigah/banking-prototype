@@ -1,4 +1,6 @@
-defmodule Http.Account.Authorizer do
+defmodule Account.Http.Authorizer do
+  @moduledoc false
+
   import Plug.Conn
 
   def init(options) do
@@ -18,11 +20,12 @@ defmodule Http.Account.Authorizer do
     try do
       {:ok, String.to_integer(token)}
     rescue
-      _ -> raise Http.Account.Authorizer.AuthorizationError
+      _ -> raise Account.Http.Authorizer.AuthorizationError
     end
   end
 
   defmodule AuthorizationError do
+    @moduledoc false
     defexception message: "AuthorizationError", details: "Invalid Token", status_code: 401
   end
 end

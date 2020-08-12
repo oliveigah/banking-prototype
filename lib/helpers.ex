@@ -1,4 +1,6 @@
 defmodule Helpers do
+  @moduledoc false
+
   @special_fields [:currency, :type, :current_currency, :new_currency]
   defp convert_special_values_to_atoms(%{} = body) do
     @special_fields

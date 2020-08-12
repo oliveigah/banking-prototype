@@ -1,8 +1,8 @@
-defmodule Http.Account.Exchange do
+defmodule Account.Http.Refund do
+  @moduledoc false
+
   @required_body %{
-    current_amount: &is_number/1,
-    current_currency: &is_atom/1,
-    new_currency: &is_atom/1
+    operation_to_refund_id: &is_number/1
   }
 
   @spec execute(map(), number()) :: {number(), map()}
@@ -18,14 +18,14 @@ defmodule Http.Account.Exchange do
         |> generate_http_response()
 
       non_empty ->
-        raise(Http.Account.ValidationError, non_empty)
+        raise(Account.Http.Index.ValidationError, non_empty)
     end
   end
 
   defp execute_operation(parsed_body, account_id) do
     account_id
     |> Account.Cache.server_process()
-    |> Account.Server.exchange_balances(parsed_body)
+    |> Account.Server.refund(parsed_body)
   end
 
   defp generate_http_response(operation_response) do
@@ -36,7 +36,7 @@ defmodule Http.Account.Exchange do
            success: true,
            response: %{
              approved: true,
-             new_balances: new_balance,
+             new_balance: new_balance,
              operation: operation_data
            }
          }}
@@ -49,9 +49,18 @@ defmodule Http.Account.Exchange do
             response: %{
               approved: false,
               reason: reason,
-              new_balances: balance,
+              new_balance: balance,
               operation: operation_data
             }
+          }
+        }
+
+      {:error, reason, _balance} ->
+        {
+          403,
+          %{
+            success: false,
+            message: reason
           }
         }
     end

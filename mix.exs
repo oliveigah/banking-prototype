@@ -15,10 +15,19 @@ defmodule Banking.MixProject do
       homepage_url: "https://oliveigah.github.io/banking_prototype",
       docs: [
         # The main page in the docs
-        main: "readme",
+        main: "system_overview",
         logo: "logo.png",
         extras: [
-          "./README.md"
+          "./doc_files/system_overview.md",
+          "./doc_files/http_routes.md",
+          "./doc_files/design_choices.md"
+        ],
+        assets: "./exdocs_assets",
+        groups_for_modules: [
+          Business: [Account, Account.Operation, Account.Exchange],
+          Components: [Account.System, Account.ProcessRegistry, Account.Cache, Account.Server],
+          Database: [Database, Database.Worker, Database.ProcessRegistry],
+          Metrics: [Metrics.System, Metrics.Scheduler, Metrics.Collector]
         ]
       ]
     ]

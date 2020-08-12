@@ -1,4 +1,5 @@
-defmodule Http.Account.Balances do
+defmodule Account.Http.Balances do
+  @moduledoc false
   @spec execute(number()) :: {number(), map()}
   def execute(account_id) do
     account_id

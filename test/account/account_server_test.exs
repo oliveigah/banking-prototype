@@ -29,9 +29,21 @@ defmodule AccountServerTest do
     })
 
     assert [
-             %Operation{data: %{amount: 7000, currency: :BRL}, type: :deposit, status: :done},
-             %Operation{data: %{amount: 3000, currency: :BRL}, type: :withdraw, status: :done},
-             %Operation{data: %{amount: 5000, currency: :BRL}, type: :deposit, status: :done}
+             %Account.Operation{
+               data: %{amount: 7000, currency: :BRL},
+               type: :deposit,
+               status: :done
+             },
+             %Account.Operation{
+               data: %{amount: 3000, currency: :BRL},
+               type: :withdraw,
+               status: :done
+             },
+             %Account.Operation{
+               data: %{amount: 5000, currency: :BRL},
+               type: :deposit,
+               status: :done
+             }
            ] = Account.Server.operations(bob_account_pid, ~D[2020-07-24])
 
     assert Account.Server.balance(bob_account_pid, :BRL) == 9000
@@ -65,22 +77,22 @@ defmodule AccountServerTest do
     })
 
     assert [
-             %Operation{
+             %Account.Operation{
                data: %{currency: :BRL, amount: 5000},
                type: :deposit,
                status: :done
              },
-             %Operation{
+             %Account.Operation{
                data: %{currency: :BRL, amount: 10000, message: _m},
                type: :withdraw,
                status: :denied
              },
-             %Operation{
+             %Account.Operation{
                data: %{currency: :BRL, amount: 1000},
                type: :withdraw,
                status: :done
              },
-             %Operation{
+             %Account.Operation{
                data: %{currency: :BRL, amount: 7000},
                type: :deposit,
                status: :done
@@ -129,27 +141,27 @@ defmodule AccountServerTest do
     })
 
     assert [
-             %Operation{
+             %Account.Operation{
                data: %{currency: :BRL, amount: 1300, recipient_account_id: 2},
                type: :transfer_out,
                status: :done
              },
-             %Operation{
+             %Account.Operation{
                data: %{currency: :BRL, amount: 10000, recipient_account_id: 2},
                type: :transfer_out,
                status: :denied
              },
-             %Operation{
+             %Account.Operation{
                data: %{currency: :BRL, amount: 1200, recipient_account_id: 2},
                type: :transfer_out,
                status: :done
              },
-             %Operation{
+             %Account.Operation{
                data: %{currency: :BRL, amount: 1100, recipient_account_id: 2},
                type: :transfer_out,
                status: :done
              },
-             %Operation{
+             %Account.Operation{
                data: %{currency: :BRL, amount: 7000},
                type: :deposit,
                status: :done
@@ -157,17 +169,17 @@ defmodule AccountServerTest do
            ] = Account.Server.operations(bob_account_pid, ~D[2020-07-24])
 
     assert [
-             %Operation{
+             %Account.Operation{
                data: %{currency: :BRL, amount: 1300, sender_account_id: 1},
                type: :transfer_in,
                status: :done
              },
-             %Operation{
+             %Account.Operation{
                data: %{currency: :BRL, amount: 1200, sender_account_id: 1},
                type: :transfer_in,
                status: :done
              },
-             %Operation{
+             %Account.Operation{
                data: %{currency: :BRL, amount: 1100, sender_account_id: 1},
                type: :transfer_in,
                status: :done
@@ -204,7 +216,7 @@ defmodule AccountServerTest do
     assert Account.Server.balance(bob_account_pid, :BRL) == 6000
 
     assert [
-             %Operation{
+             %Account.Operation{
                data: %{
                  amount: 700,
                  currency: :BRL,
@@ -215,7 +227,7 @@ defmodule AccountServerTest do
                type: :transfer_out,
                status: :done
              },
-             %Operation{
+             %Account.Operation{
                data: %{
                  amount: 200,
                  currency: :BRL,
@@ -225,7 +237,7 @@ defmodule AccountServerTest do
                type: :transfer_out,
                status: :done
              },
-             %Operation{
+             %Account.Operation{
                data: %{
                  amount: 100,
                  currency: :BRL,
@@ -242,7 +254,7 @@ defmodule AccountServerTest do
     assert Account.Server.balance(alice_account_pid, :BRL) == 700
 
     assert [
-             %Operation{
+             %Account.Operation{
                data: %{
                  amount: 700,
                  currency: :BRL,
@@ -260,7 +272,7 @@ defmodule AccountServerTest do
     assert Account.Server.balance(jhon_account_pid, :BRL) == 200
 
     assert [
-             %Operation{
+             %Account.Operation{
                data: %{
                  amount: 200,
                  currency: :BRL,
@@ -277,7 +289,7 @@ defmodule AccountServerTest do
     assert Account.Server.balance(mary_account_pid, :BRL) == 100
 
     assert [
-             %Operation{
+             %Account.Operation{
                data: %{
                  amount: 100,
                  currency: :BRL,
@@ -325,7 +337,7 @@ defmodule AccountServerTest do
     assert Account.Server.balance(bob_account_pid, :BRL) == 1725
 
     assert [
-             %Operation{
+             %Account.Operation{
                data: %{
                  amount: 700,
                  currency: :BRL,
@@ -336,7 +348,7 @@ defmodule AccountServerTest do
                type: :transfer_out,
                status: :done
              },
-             %Operation{
+             %Account.Operation{
                data: %{
                  amount: 200,
                  currency: :BRL,
@@ -346,7 +358,7 @@ defmodule AccountServerTest do
                type: :transfer_out,
                status: :done
              },
-             %Operation{
+             %Account.Operation{
                data: %{
                  amount: 100,
                  currency: :BRL,
@@ -363,7 +375,7 @@ defmodule AccountServerTest do
     assert Account.Server.balance(alice_account_pid, :BRL) == 700
 
     assert [
-             %Operation{
+             %Account.Operation{
                data: %{
                  amount: 700,
                  currency: :BRL,
@@ -381,7 +393,7 @@ defmodule AccountServerTest do
     assert Account.Server.balance(jhon_account_pid, :BRL) == 200
 
     assert [
-             %Operation{
+             %Account.Operation{
                data: %{
                  amount: 200,
                  currency: :BRL,
@@ -398,7 +410,7 @@ defmodule AccountServerTest do
     assert Account.Server.balance(mary_account_pid, :BRL) == 100
 
     assert [
-             %Operation{
+             %Account.Operation{
                data: %{
                  amount: 100,
                  currency: :BRL,

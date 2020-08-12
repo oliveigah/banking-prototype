@@ -11,7 +11,7 @@ defmodule Account do
   The `Account.t()` data structure is composed by 3 values:
   - balances: key/value struct containing currecy => balance
   - limit: The minimal balance required to make operations, this feature only works for account's default currency other currencies are always 0
-  - operations: A map containing all the operations of a specific Account. eg `%{1 => Operation.t(), 2 => Operation.t()}`
+  - operations: A map containing all the operations of a specific Account. eg `%{1 => Account.Operation.t(), 2 => Account.Operation.t()}`
   - operations_auto_id: Used internally to generate operations ids
   - default_currency: Account's default currency
   """
@@ -55,7 +55,8 @@ defmodule Account do
   end
 
   @spec withdraw(Account.t(), %{amount: non_neg_integer(), currency: atom()}) ::
-          {:ok, Account.t(), Operation.t()} | {:denied, String.t(), Account.t(), Operation.t()}
+          {:ok, Account.t(), Account.Operation.t()}
+          | {:denied, String.t(), Account.t(), Account.Operation.t()}
   @doc """
   Register an event of withdraw and update de balance
 
@@ -67,7 +68,7 @@ defmodule Account do
       iex> {
       ...> :ok,
       ...> %Account{balances: %{BRL: 300}},
-      ...> %Operation{type: :withdraw, data: %{amount: 700, currency: :BRL}}
+      ...> %Account.Operation{type: :withdraw, data: %{amount: 700, currency: :BRL}}
       ...> } = Account.withdraw(init_account, %{amount: 700, currency: :BRL})
 
 
@@ -76,27 +77,27 @@ defmodule Account do
       ...> :denied,
       ...> reason,
       ...> %Account{balances: %{BRL: -500}},
-      ...> %Operation{type: :withdraw, data: %{amount: 50, currency: :BRL}}
+      ...> %Account.Operation{type: :withdraw, data: %{amount: 50, currency: :BRL}}
       ...> } = Account.withdraw(init_account, %{amount: 50, currency: :BRL})
 
   """
   def withdraw(%Account{} = account, %{amount: amount, currency: currency} = data) do
     case remove_balance(account, amount, currency) do
       {:ok, new_account} ->
-        operation = Operation.new(:withdraw, data)
+        operation = Account.Operation.new(:withdraw, data)
         {new_account, operation_data} = register_operation(new_account, operation)
         {:ok, new_account, operation_data}
 
       {:denied, reason} ->
         operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
-        operation = Operation.new(:withdraw, operation_custom_data)
+        operation = Account.Operation.new(:withdraw, operation_custom_data)
         {new_account, operation_data} = register_operation(account, operation)
         {:denied, reason, new_account, operation_data}
     end
   end
 
   @spec deposit(Account.t(), %{amount: pos_integer, currency: atom()}) ::
-          {:ok, Account.t(), Operation.t()}
+          {:ok, Account.t(), Account.Operation.t()}
   @doc """
   Register an event of deposit and update de balance
 
@@ -105,7 +106,7 @@ defmodule Account do
       iex> {
       ...> :ok,
       ...> %Account{balances: %{BRL: 700}},
-      ...> %Operation{type: :deposit, data: %{amount: 700, currency: :BRL}}
+      ...> %Account.Operation{type: :deposit, data: %{amount: 700, currency: :BRL}}
       ...> } = Account.deposit(init_account, %{amount: 700, currency: :BRL})
 
   """
@@ -113,7 +114,7 @@ defmodule Account do
     {new_account, operation_data} =
       account
       |> add_balance(amount, currency)
-      |> register_operation(Operation.new(:deposit, data))
+      |> register_operation(Account.Operation.new(:deposit, data))
 
     {:ok, new_account, operation_data}
   end
@@ -122,8 +123,8 @@ defmodule Account do
           Account.t(),
           %{amount: non_neg_integer(), currency: atom, recipient_account_id: number}
         ) ::
-          {:ok, Account.t(), Operation.t()}
-          | {:denied, String.t(), Account.t(), Operation.t()}
+          {:ok, Account.t(), Account.Operation.t()}
+          | {:denied, String.t(), Account.t(), Account.Operation.t()}
   @doc """
   Register an event of transfer for each data received on the list and update the balance
 
@@ -136,7 +137,7 @@ defmodule Account do
       iex> {
       ...> :ok,
       ...> %Account{balances: %{BRL: 300}},
-      ...> %Operation{type: :transfer_out, data: %{amount: 700, currency: :BRL}}
+      ...> %Account.Operation{type: :transfer_out, data: %{amount: 700, currency: :BRL}}
       ...> } = Account.transfer_out(init_account, %{amount: 700, recipient_account_id: 1, currency: :BRL})
 
       iex> init_account = Account.new(%{balances: %{BRL: -500}})
@@ -144,7 +145,7 @@ defmodule Account do
       ...> :denied,
       ...> reason,
       ...> %Account{balances: %{BRL: -500}},
-      ...> %Operation{type: :transfer_out, data: %{amount: 700, currency: :BRL}}
+      ...> %Account.Operation{type: :transfer_out, data: %{amount: 700, currency: :BRL}}
       ...> } = Account.transfer_out(init_account, %{amount: 700, currency: :BRL, recipient_account_id: 1})
 
       iex> init_account = Account.new(%{balances: %{BRL: 3000}})
@@ -160,9 +161,9 @@ defmodule Account do
       ...>  :ok,
       ...>  %Account{balances: %{BRL: 2000}},
       ...>  [
-      ...>    %Operation{data: %{amount: 100, currency: :BRL, recipient_account_id: 4}},
-      ...>    %Operation{data: %{amount: 200, currency: :BRL, recipient_account_id: 3}},
-      ...>    %Operation{data: %{amount: 700, currency: :BRL, recipient_account_id: 2}}
+      ...>    %Account.Operation{data: %{amount: 100, currency: :BRL, recipient_account_id: 4}},
+      ...>    %Account.Operation{data: %{amount: 200, currency: :BRL, recipient_account_id: 3}},
+      ...>    %Account.Operation{data: %{amount: 700, currency: :BRL, recipient_account_id: 2}}
       ...> ]} = Account.transfer_out(init_account, data)
 
   """
@@ -173,13 +174,13 @@ defmodule Account do
     case remove_balance(account, amount, currency) do
       {:ok, new_account} ->
         {new_account, operation_data} =
-          register_operation(new_account, Operation.new(:transfer_out, data))
+          register_operation(new_account, Account.Operation.new(:transfer_out, data))
 
         {:ok, new_account, operation_data}
 
       {:denied, reason} ->
         operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
-        operation = Operation.new(:transfer_out, operation_custom_data)
+        operation = Account.Operation.new(:transfer_out, operation_custom_data)
         {new_account, operation_data} = register_operation(account, operation)
 
         {:denied, reason, new_account, operation_data}
@@ -190,8 +191,8 @@ defmodule Account do
           Account.t(),
           %{amount: non_neg_integer(), recipients_data: list()}
         ) ::
-          {:ok, Account.t(), [Operation.t()]}
-          | {:denied, String.t(), Account.t(), Operation.t()}
+          {:ok, Account.t(), [Account.Operation.t()]}
+          | {:denied, String.t(), Account.t(), Account.Operation.t()}
 
   def transfer_out(
         %Account{} = account,
@@ -204,7 +205,7 @@ defmodule Account do
 
       {:denied, reason} ->
         operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
-        operation = Operation.new(:transfer_out, operation_custom_data)
+        operation = Account.Operation.new(:transfer_out, operation_custom_data)
         {new_account, operation_data} = register_operation(account, operation)
 
         {:denied, reason, new_account, operation_data}
@@ -212,7 +213,7 @@ defmodule Account do
   end
 
   @spec transfer_in(Account.t(), %{amount: pos_integer, currency: atom, sender_account_id: any}) ::
-          {:ok, Account.t(), Operation.t()}
+          {:ok, Account.t(), Account.Operation.t()}
   @doc """
   Register an event of transfer in and update de balance
 
@@ -221,7 +222,7 @@ defmodule Account do
       iex> {
       ...> :ok,
       ...> %Account{balances: %{BRL: 1000}},
-      ...> %Operation{type: :transfer_in, data: %{amount: 700, currency: :BRL, sender_account_id: 1}}
+      ...> %Account.Operation{type: :transfer_in, data: %{amount: 700, currency: :BRL, sender_account_id: 1}}
       ...> } = Account.transfer_in(init_account, %{amount: 700, currency: :BRL, sender_account_id: 1})
   """
   def transfer_in(
@@ -231,13 +232,14 @@ defmodule Account do
     {new_account, operation_data} =
       account
       |> add_balance(amount, currency)
-      |> register_operation(Operation.new(:transfer_in, data))
+      |> register_operation(Account.Operation.new(:transfer_in, data))
 
     {:ok, new_account, operation_data}
   end
 
   @spec card_transaction(Account.t(), %{amount: non_neg_integer(), currency: atom, card_id: any}) ::
-          {:ok, Account.t(), Operation.t()} | {:denied, String.t(), Account.t(), Operation.t()}
+          {:ok, Account.t(), Account.Operation.t()}
+          | {:denied, String.t(), Account.t(), Account.Operation.t()}
   @doc """
   Register an event of card transaction and update the balance
 
@@ -248,7 +250,7 @@ defmodule Account do
       iex> {
       ...> :ok,
       ...> %Account{balances: %{BRL: 300}},
-      ...> %Operation{type: :card_transaction, data: %{amount: 700, currency: :BRL}}
+      ...> %Account.Operation{type: :card_transaction, data: %{amount: 700, currency: :BRL}}
       ...> } = Account.card_transaction(init_account, %{amount: 700, currency: :BRL, card_id: 1})
 
       iex> init_account = Account.new(%{balances: %{BRL: -500}})
@@ -256,7 +258,7 @@ defmodule Account do
       ...> :denied,
       ...> reason,
       ...> %Account{balances: %{BRL: -500}},
-      ...> %Operation{type: :card_transaction, data: %{amount: 700, currency: :BRL}}
+      ...> %Account.Operation{type: :card_transaction, data: %{amount: 700, currency: :BRL}}
       ...> } = Account.card_transaction(init_account, %{amount: 700, currency: :BRL, card_id: 1})
 
   """
@@ -266,20 +268,20 @@ defmodule Account do
       ) do
     case(remove_balance(account, amount, currency)) do
       {:ok, new_account} ->
-        operation = Operation.new(:card_transaction, data)
+        operation = Account.Operation.new(:card_transaction, data)
         {new_account, operation_data} = register_operation(new_account, operation)
         {:ok, new_account, operation_data}
 
       {:denied, reason} ->
         operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
-        operation = Operation.new(:card_transaction, operation_custom_data)
+        operation = Account.Operation.new(:card_transaction, operation_custom_data)
         {new_account, operation_data} = register_operation(account, operation)
         {:denied, reason, new_account, operation_data}
     end
   end
 
   @spec refund(Account.t(), %{operation_to_refund_id: any}) ::
-          {:ok, Account.t(), Operation.t()}
+          {:ok, Account.t(), Account.Operation.t()}
           | {:error, String.t(), Account.t()}
   @doc """
   Register an event of refund, update de balance and update the refunded operation status
@@ -293,7 +295,7 @@ defmodule Account do
       iex> {
       ...> :ok,
       ...> %Account{balances: %{BRL: 1000}},
-      ...> %Operation{type: :refund, data: %{operation_to_refund_id: ^op_id}}
+      ...> %Account.Operation{type: :refund, data: %{operation_to_refund_id: ^op_id}}
       ...> } = Account.refund(init_account, %{operation_to_refund_id: op_id})
   """
   def refund(
@@ -307,7 +309,7 @@ defmodule Account do
             refund_amount = operation_to_refund.data.amount
             refund_currency = operation_to_refund.data.currency
             operation_custom_data = Map.put(data, :amount, refund_amount)
-            operation = Operation.new(:refund, operation_custom_data)
+            operation = Account.Operation.new(:refund, operation_custom_data)
 
             {new_account, operation_data} =
               add_balance(account, refund_amount, refund_currency)
@@ -334,7 +336,7 @@ defmodule Account do
       iex> {
       ...> :ok,
       ...> %Account{balances: %{BRL: 545, USD: 900}},
-      ...> %Operation{type: :exchange, status: :done}
+      ...> %Account.Operation{type: :exchange, status: :done}
       ...> } = Account.exchange_balances(init_account, %{current_amount: 100, current_currency: :USD, new_currency: :BRL})
   """
   def exchange_balances(
@@ -352,7 +354,7 @@ defmodule Account do
           |> Map.put(:exchange_rate, exchange_rate)
           |> Map.put(:new_amount, new_amount)
 
-        operation = Operation.new(:exchange, operation_custom_data)
+        operation = Account.Operation.new(:exchange, operation_custom_data)
 
         {new_account, operation_data} =
           add_balance(new_account, new_amount, new_currency)
@@ -362,7 +364,7 @@ defmodule Account do
 
       {:denied, reason} ->
         operation_custom_data = Map.merge(data, %{message: reason, status: :denied})
-        operation = Operation.new(:exchange, operation_custom_data)
+        operation = Account.Operation.new(:exchange, operation_custom_data)
         {new_account, operation_data} = register_operation(account, operation)
         {:denied, reason, new_account, operation_data}
     end
@@ -403,11 +405,11 @@ defmodule Account do
       iex> {:denied, _, new_account, _} = Account.withdraw(new_account, %{amount: 1300, currency: :BRL, date_time: ~U[2020-07-24 12:00:00Z]})
       iex> {:ok, new_account, _} = Account.deposit(new_account, %{amount: 700, currency: :BRL, date_time: ~U[2020-07-25 11:00:00Z]})
       iex> [
-      ...>  %Operation{type: :withdraw, data: %{amount: 1300, currency: :BRL}, status: :denied},
-      ...>  %Operation{type: :withdraw, data: %{amount: 700, currency: :BRL}, status: :done}
+      ...>  %Account.Operation{type: :withdraw, data: %{amount: 1300, currency: :BRL}, status: :denied},
+      ...>  %Account.Operation{type: :withdraw, data: %{amount: 700, currency: :BRL}, status: :done}
       ...> ] = Account.operations(new_account, ~D[2020-07-24])
   """
-  @spec operations(Account.t(), Date.t()) :: [Operation.t()]
+  @spec operations(Account.t(), Date.t()) :: [Account.Operation.t()]
   def operations(%Account{} = account, date) do
     account.operations
     |> Stream.filter(fn {_, operation} -> DateTime.to_date(operation.date_time) == date end)
@@ -425,12 +427,12 @@ defmodule Account do
     iex> {:ok, new_account, _} = Account.deposit(new_account, %{amount: 700, currency: :BRL, date_time: ~U[2020-07-25 11:00:00Z]})
     iex> {:ok, new_account, _} = Account.deposit(new_account, %{amount: 1800, currency: :BRL, date_time: ~U[2020-07-26 11:00:00Z]})
     iex> [
-    ...>  %Operation{type: :deposit, data: %{amount: 700, currency: :BRL}, status: :done},
-    ...>  %Operation{type: :withdraw, data: %{amount: 1300, currency: :BRL}, status: :denied},
-    ...>  %Operation{type: :withdraw, data: %{amount: 700, currency: :BRL}, status: :done}
+    ...>  %Account.Operation{type: :deposit, data: %{amount: 700, currency: :BRL}, status: :done},
+    ...>  %Account.Operation{type: :withdraw, data: %{amount: 1300, currency: :BRL}, status: :denied},
+    ...>  %Account.Operation{type: :withdraw, data: %{amount: 700, currency: :BRL}, status: :done}
     ...> ] = Account.operations(new_account, ~D[2020-07-24], ~D[2020-07-25] )
   """
-  @spec operations(Account.t(), Date.t(), Date.t()) :: [Operation.t()]
+  @spec operations(Account.t(), Date.t(), Date.t()) :: [Account.Operation.t()]
   def operations(%Account{} = account, ini_date, fin_date) do
     account.operations
     |> Stream.filter(fn {_, operation} -> is_between(operation, ini_date, fin_date) end)
@@ -445,7 +447,7 @@ defmodule Account do
   ## HELPERS ##
   @refundable_operations [:card_transaction]
 
-  defp is_refundable(%Operation{} = operation) do
+  defp is_refundable(%Account.Operation{} = operation) do
     is_card_operation =
       Enum.find(@refundable_operations, nil, fn type -> type == operation.type end) !== nil
 
@@ -465,19 +467,20 @@ defmodule Account do
   defp operation_exists(%Account{} = account, operation_id) do
     case Map.fetch(account.operations, operation_id) do
       :error ->
-        {:error, "Operation do not exists"}
+        {:error, "Account.Operation do not exists"}
 
       {:ok, operation} ->
         {:ok, operation}
     end
   end
 
-  defp is_between(%Operation{} = operation, ini, fin) do
+  defp is_between(%Account.Operation{} = operation, ini, fin) do
     Helpers.is_date_between(DateTime.to_date(operation.date_time), ini, fin)
   end
 
-  @spec register_operation(Account.t(), Operation.t()) :: {Account.t(), Operation.t()}
-  defp register_operation(%Account{} = account, %Operation{} = new_operation) do
+  @spec register_operation(Account.t(), Account.Operation.t()) ::
+          {Account.t(), Account.Operation.t()}
+  defp register_operation(%Account{} = account, %Account.Operation{} = new_operation) do
     new_operation_entry = Map.put(new_operation, :id, account.operations_auto_id)
 
     new_operations = Map.put(account.operations, account.operations_auto_id, new_operation_entry)
@@ -535,7 +538,7 @@ defmodule Account do
     {new_account, operation_data_list} =
       Map.get(data, :recipients_data)
       |> Stream.map(&update_recipient_data_amount(&1, total_amount))
-      |> Stream.map(&Operation.new(:transfer_out, Map.merge(custom_data, &1)))
+      |> Stream.map(&Account.Operation.new(:transfer_out, Map.merge(custom_data, &1)))
       |> Enum.reduce({account, []}, fn operation, {account, operation_list} ->
         {new_account, operation_data} = register_operation(account, operation)
         {new_account, [operation_data | operation_list]}

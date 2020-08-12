@@ -1,4 +1,5 @@
-defmodule Http.Account.Operation do
+defmodule Account.Http.Account.Operation do
+  @moduledoc false
   @spec execute(map(), number()) :: {number(), map()}
   def execute(%{} = entry_params, account_id) do
     entry_params
@@ -22,7 +23,7 @@ defmodule Http.Account.Operation do
         {404,
          %{
            success: false,
-           message: "Operation not found"
+           message: "Account.Operation not found"
          }}
 
       operation ->

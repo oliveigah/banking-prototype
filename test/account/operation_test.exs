@@ -1,10 +1,10 @@
 defmodule OperationTest do
   use ExUnit.Case
-  doctest Operation
+  doctest Account.Operation
 
   test "key values should overwrite" do
     new_operation =
-      Operation.new(:deposit, %{
+      Account.Operation.new(:deposit, %{
         amount: 1000,
         status: :my_custom_status,
         date_time: ~U[2020-07-24 10:00:00Z]

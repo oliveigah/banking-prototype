@@ -1,4 +1,5 @@
 defmodule Banking.System do
+  @moduledoc false
   def start_link() do
     Supervisor.start_link(
       [Database, Account.System, Metrics.System],

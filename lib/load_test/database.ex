@@ -1,7 +1,6 @@
 defmodule Database.LoadTest do
-  @moduledoc """
-    Test module to execute a load test on the Database module
-  """
+  @moduledoc false
+
   @seconds_to_measure 10
   @doc """
   Executes the load test

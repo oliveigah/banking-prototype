@@ -1,6 +1,9 @@
-defmodule Http.Account.Refund do
+defmodule Account.Http.MultiTransfer do
+  @moduledoc false
   @required_body %{
-    operation_to_refund_id: &is_number/1
+    amount: &is_number/1,
+    currency: &is_atom/1,
+    recipients_data: &is_list/1
   }
 
   @spec execute(map(), number()) :: {number(), map()}
@@ -16,26 +19,27 @@ defmodule Http.Account.Refund do
         |> generate_http_response()
 
       non_empty ->
-        raise(Http.Account.ValidationError, non_empty)
+        raise(Account.Http.Index.ValidationError, non_empty)
     end
   end
 
   defp execute_operation(parsed_body, account_id) do
     account_id
     |> Account.Cache.server_process()
-    |> Account.Server.refund(parsed_body)
+    |> Account.Server.transfer_out(parsed_body)
   end
 
   defp generate_http_response(operation_response) do
     case operation_response do
-      {:ok, new_balance, operation_data} ->
+      {:ok, new_balance, operation_data, recipiet_operation_data} ->
         {201,
          %{
            success: true,
            response: %{
              approved: true,
              new_balance: new_balance,
-             operation: operation_data
+             operations: operation_data,
+             recipients_operations_data: recipiet_operation_data
            }
          }}
 
@@ -48,17 +52,8 @@ defmodule Http.Account.Refund do
               approved: false,
               reason: reason,
               new_balance: balance,
-              operation: operation_data
+              operation_id: operation_data
             }
-          }
-        }
-
-      {:error, reason, _balance} ->
-        {
-          403,
-          %{
-            success: false,
-            message: reason
           }
         }
     end

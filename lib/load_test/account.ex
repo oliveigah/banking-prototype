@@ -1,20 +1,21 @@
 defmodule Account.LoadTest do
-  @moduledoc """
-    Test module to execute a load test on the Account module
+  @moduledoc false
 
-    - Premise: 10_000_000 active clients
-    - Hypothese 1: Each client make 5 financial operations per day => 50_000_000 operations per day
-    - Hypothese 2: The operations are distributed in a normal fashion, 80% of the operations happens in 20% of the time => 50M * 0.8 / (24 * 60 * 60 * 0.2) ≈ 2_300 rps
-    - Hypothese 3: Just 20% of the clients make a new operation earlier than the cache expire time (240 seconds)
-  """
+  # Test module to execute a load test on the Account module
+
+  # - Premise: 10_000_000 active clients
+  # - Hypothese 1: Each client make 5 financial operations per day => 50_000_000 operations per day
+  # - Hypothese 2: The operations are distributed in a normal fashion, 80% of the operations happens in 20% of the time => 50M * 0.8 / (24 * 60 * 60 * 0.2) ≈ 2_300 rps
+  # - Hypothese 3: Just 20% of the clients make a new operation earlier than the cache expire time (240 seconds)
+
   # From h2 : Total Req/Day * 0.8 / (24 * 60 * 60 * 0.2)
   @minimal_requests_per_sec 2_300
   # RPS * Cache expire time
-  @total_processes 600_000
+  @total_processes 300_000
   # From h3 : Total Req/Day * 0.8 / (24 * 60 * 60 * 0.2)
   @cache_hit_percentage 20
   # Arbitraty measurment interval size
-  @interval_size 50_000
+  @interval_size 10_000
 
   @doc """
   Executes the load test
@@ -41,7 +42,7 @@ defmodule Account.LoadTest do
       :timer.tc(fn ->
         interval
         |> Enum.map(&Account.Cache.server_process/1)
-        |> Enum.each(&Account.Server.deposit(&1, %{amount: 1000}))
+        |> Enum.each(&Account.Server.deposit(&1, %{amount: 1000, currency: :BRL}))
       end)
 
     average_miss_time = miss_time / @interval_size
@@ -54,7 +55,7 @@ defmodule Account.LoadTest do
       :timer.tc(fn ->
         interval
         |> Enum.map(&Account.Cache.server_process/1)
-        |> Enum.each(&Account.Server.withdraw(&1, %{amount: 1000}))
+        |> Enum.each(&Account.Server.withdraw(&1, %{amount: 1000, currency: :BRL}))
       end)
 
     average_hit_time = hit_time / @interval_size

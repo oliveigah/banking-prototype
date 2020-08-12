@@ -10,7 +10,7 @@ defmodule AccountTest do
 
     assert Account.balance(bob_account, :BRL) == 5000
 
-    assert %Operation{
+    assert %Account.Operation{
              type: :deposit,
              status: :done,
              data: %{amount: 5000, currency: :BRL}
@@ -28,7 +28,7 @@ defmodule AccountTest do
 
     assert Account.balance(bob_account, :BRL) == 5000
 
-    assert %Operation{
+    assert %Account.Operation{
              data: %{amount: 5000, currency: :BRL, sender_account_id: 1},
              type: :transfer_in,
              status: :done
@@ -42,7 +42,7 @@ defmodule AccountTest do
 
     assert Account.balance(bob_account, :BRL) == 2000
 
-    assert %Operation{
+    assert %Account.Operation{
              data: %{amount: 3000, currency: :BRL},
              type: :withdraw,
              status: :done
@@ -56,7 +56,7 @@ defmodule AccountTest do
 
     assert Account.balance(bob_account, :BRL) == 3000
 
-    assert %Operation{
+    assert %Account.Operation{
              data: %{amount: 5000, message: ^reason, currency: :BRL},
              type: :withdraw,
              status: :denied
@@ -70,7 +70,7 @@ defmodule AccountTest do
 
     assert Account.balance(bob_account, :BRL) == 4000
 
-    assert %Operation{
+    assert %Account.Operation{
              data: %{amount: 3000, currency: :BRL, recipient_account_id: 1},
              type: :transfer_out,
              status: :done
@@ -84,7 +84,7 @@ defmodule AccountTest do
 
     assert Account.balance(bob_account, :BRL) == 3000
 
-    assert %Operation{
+    assert %Account.Operation{
              data: %{amount: 5000, message: ^reason, currency: :BRL},
              type: :transfer_out,
              status: :denied
@@ -98,7 +98,7 @@ defmodule AccountTest do
 
     assert Account.balance(bob_account, :BRL) == 7000
 
-    assert %Operation{
+    assert %Account.Operation{
              data: %{amount: 3000, currency: :BRL},
              type: :card_transaction,
              status: :done
@@ -112,7 +112,7 @@ defmodule AccountTest do
 
     assert Account.balance(bob_account, :BRL) == 5000
 
-    assert %Operation{
+    assert %Account.Operation{
              data: %{amount: 7000, currency: :BRL, message: ^reason},
              type: :card_transaction,
              status: :denied
@@ -131,7 +131,7 @@ defmodule AccountTest do
 
     assert Account.balance(bob_account, :BRL) == 2000
 
-    assert %Operation{
+    assert %Account.Operation{
              data: %{amount: 3000, currency: :BRL},
              type: :card_transaction,
              status: :done
@@ -144,13 +144,13 @@ defmodule AccountTest do
 
     assert Account.balance(bob_account, :BRL) == 5000
 
-    assert %Operation{
+    assert %Account.Operation{
              data: %{amount: 3000, card_id: 1, currency: :BRL},
              type: :card_transaction,
              status: :refunded
            } = Account.operation(bob_account, card_operation_id)
 
-    assert %Operation{
+    assert %Account.Operation{
              data: %{operation_to_refund_id: ^card_operation_id},
              type: :refund,
              status: :done
@@ -207,13 +207,29 @@ defmodule AccountTest do
              date_time: ~U[2020-07-27 10:00:00Z]
            }) do
       assert [
-               %Operation{data: %{amount: 5000, currency: :BRL}, type: :withdraw, status: :done},
-               %Operation{data: %{amount: 5000, currency: :BRL}, type: :deposit, status: :done}
+               %Account.Operation{
+                 data: %{amount: 5000, currency: :BRL},
+                 type: :withdraw,
+                 status: :done
+               },
+               %Account.Operation{
+                 data: %{amount: 5000, currency: :BRL},
+                 type: :deposit,
+                 status: :done
+               }
              ] = Account.operations(bob_account, ~D[2020-07-24])
 
       assert [
-               %Operation{data: %{amount: 5000, currency: :BRL}, type: :deposit, status: :done},
-               %Operation{data: %{amount: 5000, currency: :BRL}, type: :withdraw, status: :denied}
+               %Account.Operation{
+                 data: %{amount: 5000, currency: :BRL},
+                 type: :deposit,
+                 status: :done
+               },
+               %Account.Operation{
+                 data: %{amount: 5000, currency: :BRL},
+                 type: :withdraw,
+                 status: :denied
+               }
              ] = Account.operations(bob_account, ~D[2020-07-25], ~D[2020-07-27])
     end
   end
@@ -236,7 +252,7 @@ defmodule AccountTest do
 
     assert Account.balance(bob_account, :BRL) === 9000
 
-    assert %Operation{
+    assert %Account.Operation{
              data: %{
                amount: 100,
                recipient_account_id: 4,
@@ -247,7 +263,7 @@ defmodule AccountTest do
              status: :done
            } = Enum.at(operations_list, 0)
 
-    assert %Operation{
+    assert %Account.Operation{
              data: %{
                amount: 200,
                recipient_account_id: 3,
@@ -258,7 +274,7 @@ defmodule AccountTest do
              status: :done
            } = Enum.at(operations_list, 1)
 
-    assert %Operation{
+    assert %Account.Operation{
              data: %{
                amount: 700,
                currency: :BRL,

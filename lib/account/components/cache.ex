@@ -41,12 +41,23 @@ defmodule Account.Cache do
       true
   """
   def server_process(account_id, args \\ %{}) do
-    case(start_child(account_id, args)) do
-      {:ok, account_server_pid} ->
-        account_server_pid
+    case(is_already_running?(account_id)) do
+      false ->
+        {:ok, pid} = start_child(account_id, args)
+        pid
 
-      {:error, {:already_started, account_server_pid}} ->
-        account_server_pid
+      {true, pid} ->
+        pid
+    end
+  end
+
+  defp is_already_running?(account_pid) do
+    case Registry.lookup(Account.ProcessRegistry, {Account.Server, account_pid}) do
+      [] ->
+        false
+
+      [{pid, _value}] ->
+        {true, pid}
     end
   end
 end

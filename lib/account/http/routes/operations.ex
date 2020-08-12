@@ -1,4 +1,5 @@
-defmodule Http.Account.Operations do
+defmodule Account.Http.Operations do
+  @moduledoc false
   @spec execute(map(), number()) :: {number(), map()}
   def execute(%{} = entry_params, account_id) do
     entry_params

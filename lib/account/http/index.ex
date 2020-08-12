@@ -1,8 +1,9 @@
-defmodule Http.Account do
+defmodule Account.Http.Index do
+  @moduledoc false
   use Plug.Router
   use Plug.ErrorHandler
 
-  plug(Http.Account.Authorizer)
+  plug(Account.Http.Authorizer)
   plug(:match)
   plug(Plug.Parsers, parsers: [:json], json_decoder: Poison)
   plug(:dispatch)
@@ -40,7 +41,7 @@ defmodule Http.Account do
     account = conn.assigns[:account_id]
 
     conn.body_params
-    |> Http.Account.Deposit.execute(account)
+    |> Account.Http.Deposit.execute(account)
     |> send_http_response(conn)
   end
 
@@ -48,7 +49,7 @@ defmodule Http.Account do
     account = conn.assigns[:account_id]
 
     conn.body_params
-    |> Http.Account.Withdraw.execute(account)
+    |> Account.Http.Withdraw.execute(account)
     |> send_http_response(conn)
   end
 
@@ -56,7 +57,7 @@ defmodule Http.Account do
     account = conn.assigns[:account_id]
 
     conn.body_params
-    |> Http.Account.Transfer.execute(account)
+    |> Account.Http.Transfer.execute(account)
     |> send_http_response(conn)
   end
 
@@ -64,7 +65,7 @@ defmodule Http.Account do
     account = conn.assigns[:account_id]
 
     conn.body_params
-    |> Http.Account.MultiTransfer.execute(account)
+    |> Account.Http.MultiTransfer.execute(account)
     |> send_http_response(conn)
   end
 
@@ -72,7 +73,7 @@ defmodule Http.Account do
     account = conn.assigns[:account_id]
 
     conn.body_params
-    |> Http.Account.Card.Transaction.execute(account)
+    |> Account.Http.Card.Transaction.execute(account)
     |> send_http_response(conn)
   end
 
@@ -80,7 +81,7 @@ defmodule Http.Account do
     account = conn.assigns[:account_id]
 
     conn.body_params
-    |> Http.Account.Refund.execute(account)
+    |> Account.Http.Refund.execute(account)
     |> send_http_response(conn)
   end
 
@@ -88,7 +89,7 @@ defmodule Http.Account do
     account = conn.assigns[:account_id]
 
     conn.body_params
-    |> Http.Account.Exchange.execute(account)
+    |> Account.Http.Exchange.execute(account)
     |> send_http_response(conn)
   end
 
@@ -96,7 +97,7 @@ defmodule Http.Account do
     account = conn.assigns[:account_id]
 
     conn.params
-    |> Http.Account.Operations.execute(account)
+    |> Account.Http.Operations.execute(account)
     |> send_http_response(conn)
   end
 
@@ -104,23 +105,24 @@ defmodule Http.Account do
     account = conn.assigns[:account_id]
 
     conn.params
-    |> Http.Account.Operation.execute(account)
+    |> Account.Http.Account.Operation.execute(account)
     |> send_http_response(conn)
   end
 
   get("account/balances") do
     account = conn.assigns[:account_id]
 
-    Http.Account.Balances.execute(account)
+    Account.Http.Balances.execute(account)
     |> send_http_response(conn)
   end
 
   defmodule ValidationError do
+    @moduledoc false
     defexception [:details, message: "ValidationError", status_code: 400]
 
     @impl true
     def exception(missing_fields) do
-      %Http.Account.ValidationError{details: missing_fields}
+      %Account.Http.Index.ValidationError{details: missing_fields}
     end
   end
 end

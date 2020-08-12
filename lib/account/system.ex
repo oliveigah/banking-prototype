@@ -5,7 +5,7 @@ defmodule Account.System do
         Account.ProcessRegistry,
         Account.Exchange,
         Account.Cache,
-        Http.Account
+        Account.Http.Index
       ],
       strategy: :one_for_one,
       name: __MODULE__

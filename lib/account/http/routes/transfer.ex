@@ -1,8 +1,10 @@
-defmodule Http.Account.MultiTransfer do
+defmodule Account.Http.Transfer do
+  @moduledoc false
+
   @required_body %{
     amount: &is_number/1,
     currency: &is_atom/1,
-    recipients_data: &is_list/1
+    recipient_account_id: &is_number/1
   }
 
   @spec execute(map(), number()) :: {number(), map()}
@@ -18,7 +20,7 @@ defmodule Http.Account.MultiTransfer do
         |> generate_http_response()
 
       non_empty ->
-        raise(Http.Account.ValidationError, non_empty)
+        raise(Account.Http.Index.ValidationError, non_empty)
     end
   end
 
@@ -37,8 +39,8 @@ defmodule Http.Account.MultiTransfer do
            response: %{
              approved: true,
              new_balance: new_balance,
-             operations: operation_data,
-             recipients_operations_data: recipiet_operation_data
+             operation: operation_data,
+             recipient_operation_data: recipiet_operation_data
            }
          }}
 
@@ -51,7 +53,7 @@ defmodule Http.Account.MultiTransfer do
               approved: false,
               reason: reason,
               new_balance: balance,
-              operation_id: operation_data
+              operation: operation_data
             }
           }
         }

@@ -1,4 +1,6 @@
-defmodule Http.Account.Withdraw do
+defmodule Account.Http.Withdraw do
+  @moduledoc false
+
   @required_body %{
     amount: &is_number/1,
     currency: &is_atom/1
@@ -17,7 +19,7 @@ defmodule Http.Account.Withdraw do
         |> generate_http_response()
 
       non_empty ->
-        raise(Http.Account.ValidationError, non_empty)
+        raise(Account.Http.Index.ValidationError, non_empty)
     end
   end
 

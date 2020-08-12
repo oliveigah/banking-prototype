@@ -1,5 +1,4 @@
 defmodule Database.Worker do
-  @moduledoc false
   use GenServer
 
   defp via_tuple(worker_id) do
