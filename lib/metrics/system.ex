@@ -1,4 +1,5 @@
 defmodule Metrics.System do
+  @moduledoc false
   def start_link() do
     Supervisor.start_link(
       [Metrics.Scheduler],

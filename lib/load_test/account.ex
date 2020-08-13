@@ -30,6 +30,8 @@ defmodule Account.LoadTest do
     interval_count = round(@total_processes / @interval_size)
 
     Enum.each(0..(interval_count - 1), &run_interval(make_interval(&1)))
+
+    File.rm_rf("./persist")
   end
 
   defp make_interval(n) do

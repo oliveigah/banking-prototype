@@ -1,12 +1,12 @@
 defmodule Database do
   @moduledoc """
-    Supervisor that manages `Database.Worker` processes, responsible for data persistence functionality
+    `Supervisor` that manages `Database.Worker` processes, responsible for data persistence functionality and workers pooling
 
     - `Database.worker` are used to perform kind of connection pools, spliting the real computational work between all processes
     - This module works as a connection pool manager, just forwarding the request for a selected worker
     - This module guarantee that requests that manipulate the same key will always be handled by the same `Database.worker` process, resulting in no race conditions, because worker processes receives messages sequentially
+    - Internally, all the real computation is on `Database.Worker` processes
 
-    TODO: Segregate get and put workers
   """
   @workers_count 3
   @base_folder Application.compile_env!(:banking, :database_base_folder)
@@ -49,7 +49,7 @@ defmodule Database do
 
   @spec store_async(any(), any(), String.t()) :: :ok
   @doc """
-  Persist data asynchronously
+  Persist data asynchronously under the given folder with the given key
   """
   def store_async(key, value, folder) do
     final_folder = concatenate_folder(folder)
@@ -61,7 +61,7 @@ defmodule Database do
 
   @spec store_sync(any(), any(), String.t()) :: :ok
   @doc """
-  Persist data synchronously
+  Persist data synchronously under the given folder with the given key
   """
   def store_sync(key, value, folder) do
     final_folder = concatenate_folder(folder)
@@ -73,7 +73,7 @@ defmodule Database do
 
   @spec get(any(), String.t()) :: any() | nil
   @doc """
-  Get the persisted data
+  Get the persisted data registered under the given folder with the given key
   """
   def get(key, folder) do
     final_folder = concatenate_folder(folder)

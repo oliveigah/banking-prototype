@@ -1,4 +1,5 @@
 defmodule Account.System do
+  @moduledoc false
   def start_link() do
     Supervisor.start_link(
       [

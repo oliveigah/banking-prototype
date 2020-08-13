@@ -1,19 +1,19 @@
 defmodule Account do
   @moduledoc """
-    Pure functional module that manages `Account`
+    Pure functional module that manages `Account` data structures
 
-    All events except `refunds` that are denied or done, will be saved on the operations data structure. Refunds are registered only if suceed.
+    - Operations are always registered on account's operations either if it is `:denied` or `:ok`
   """
 
   @typedoc """
-  Basic struct to manage `Account`
+  Basic struct that represents an `Account`
 
-  The `Account.t()` data structure is composed by 3 values:
-  - balances: key/value struct containing currecy => balance
-  - limit: The minimal balance required to make operations, this feature only works for account's default currency other currencies are always 0
-  - operations: A map containing all the operations of a specific Account. eg `%{1 => Account.Operation.t(), 2 => Account.Operation.t()}`
-  - operations_auto_id: Used internally to generate operations ids
-  - default_currency: Account's default currency
+  The `Account.t()` data structure is composed by 5 values:
+    - balances: map containing `%{currecy => balance}` eg: `%{BRL: 2500}`
+    - limit: The minimal balance required to make operations, this feature only works for account's default currency other currencies are always 0
+    - operations: A map containing all the operations of a specific Account. eg `%{1 => Account.Operation.t(), 2 => Account.Operation.t()}`
+    - default_currency: Account's default currency used on limit feature
+    - operations_auto_id: Used internally to generate operations ids
   """
   @type t() :: %__MODULE__{
           balances: map(),
@@ -30,24 +30,25 @@ defmodule Account do
 
   @spec new :: Account.t()
   @doc """
-  Create a new `Account`
+  Create a new `Account` data structure
 
   ## Examples
       iex> Account.new()
       %Account{balances: %{BRL: 0}, limit: -500, operations: %{}, operations_auto_id: 1}
 
-      iex> entry_map = %{balances: %{BRL: 1000}, limit: -999}
-      iex> Account.new(entry_map)
-      %Account{balances: %{BRL: 1000}, limit: -999, operations: %{}, operations_auto_id: 1}
+
   """
   def new() do
     %Account{}
   end
+  @doc """
+  Create a new `Account` data strucure with modified data
 
-  def new(nil) do
-    %Account{}
-  end
-
+  ## Examples
+      iex> entry_map = %{balances: %{BRL: 1000}, limit: -999}
+      iex> Account.new(entry_map)
+      %Account{balances: %{BRL: 1000}, limit: -999, operations: %{}, operations_auto_id: 1}
+  """
   @spec new(map()) :: Account.t()
   def new(%{} = args) do
     new_account = %Account{}
@@ -58,9 +59,7 @@ defmodule Account do
           {:ok, Account.t(), Account.Operation.t()}
           | {:denied, String.t(), Account.t(), Account.Operation.t()}
   @doc """
-  Register an event of withdraw and update de balance
-
-  - The operation is registered on account's operations either if it is `:denied` or `:ok`
+  Register an event of withdraw and update account's balance
 
   ## Examples
 
@@ -99,7 +98,7 @@ defmodule Account do
   @spec deposit(Account.t(), %{amount: pos_integer, currency: atom()}) ::
           {:ok, Account.t(), Account.Operation.t()}
   @doc """
-  Register an event of deposit and update de balance
+  Register an event of deposit and update the balance
 
   ## Examples
       iex> init_account = Account.new()
@@ -126,11 +125,11 @@ defmodule Account do
           {:ok, Account.t(), Account.Operation.t()}
           | {:denied, String.t(), Account.t(), Account.Operation.t()}
   @doc """
-  Register an event of transfer for each data received on the list and update the balance
+  Register an event of transfer_out for each data received on the list and update the balance
 
-  - If this suceed, the split operation generates N :transfer_out operations on the account operation list
+  - If suceeds, the split operation generates N :transfer_out operations on the account operation list
   - If it is denied, only one operation will be created on the operations lists
-  - All the aditional data passed to data paramenter will be copied to each generated opertion
+  - All the aditional data passed to data paramenter will be copied to each generated operation
 
   ## Examples
       iex> init_account = Account.new(%{balances: %{BRL: 1000}})
@@ -215,7 +214,7 @@ defmodule Account do
   @spec transfer_in(Account.t(), %{amount: pos_integer, currency: atom, sender_account_id: any}) ::
           {:ok, Account.t(), Account.Operation.t()}
   @doc """
-  Register an event of transfer in and update de balance
+  Register an event of transfer in and update the balance
 
   ## Examples
       iex> init_account = Account.new(%{balances: %{BRL: 300}})
@@ -242,8 +241,6 @@ defmodule Account do
           | {:denied, String.t(), Account.t(), Account.Operation.t()}
   @doc """
   Register an event of card transaction and update the balance
-
-  - The operation is registered on account's operations either if it is `:denied` or `:ok`
 
   ## Examples
       iex> init_account = Account.new(%{balances: %{BRL: 1000}})
@@ -286,7 +283,7 @@ defmodule Account do
   @doc """
   Register an event of refund, update de balance and update the refunded operation status
 
-  - The operation is registered on account's operations onlf if it is `:ok`
+  - Only card operations are refundable, all other operations will return `{:error, reason, account_data}`
 
   ## Examples
 
@@ -440,6 +437,15 @@ defmodule Account do
     |> Enum.sort(&compare_operations(&1, &2))
   end
 
+  @doc """
+  Get the account's operation under the given id
+
+  ## Examples
+      iex> init_account = Account.new(%{balances: %{BRL: 1000}})
+      iex> {:ok, new_account, _} = Account.withdraw(init_account, %{amount: 700, currency: :BRL})
+      iex> %Account.Operation{} = Account.operation(new_account, 1)
+
+  """
   def operation(%Account{} = account, operation_id) do
     Map.get(account.operations, operation_id)
   end

@@ -1,11 +1,17 @@
 defmodule Metrics.Collector do
+  @moduledoc """
+  Module responsible for gathering system's metrics and persist it on the database
+  """
   @database_folder "metrics"
 
+  @doc """
+  Start the metric's gathering process as a `Task`
+  """
   def start() do
     Task.start(&collect_metrics/0)
   end
 
-  def collect_metrics() do
+  defp collect_metrics() do
     metric_key = compose_metric_key()
     new_metric = compose_metrics_data()
     current_metrics = Database.get(metric_key, @database_folder) || %{}

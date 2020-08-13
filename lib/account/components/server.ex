@@ -1,11 +1,7 @@
 defmodule Account.Server do
   @dialyzer {:Woverspecs, transfer_out: 2}
   @moduledoc """
-    Generic server process that keeps track of an `Account` module as it's state
-
-    - Results of types like `:ok` and `:denied` will be registered on the `Account` operations list
-    - Results of types like `:error` will NOT BE registered on the `Account` operations list
-
+    `GenServer` that keeps track of an `Account` data structure as it's state
   """
   use GenServer, restart: :temporary
 
@@ -97,7 +93,12 @@ defmodule Account.Server do
           {:ok, number, number, Account.Operation.t(), Account.Operation.t()}
           | {:denied, String.t(), number, Account.Operation.t()}
   @doc """
-  Transfer resources to another account
+  Transfer resources to another accounts
+
+  - The version of this functions that receives `recipients_data` make several operations according to the given list length
+  - Although the list version relies heavily on the simple single recipient implementation, the list call is just syntatic sugar to make multiple single transfers
+  - In case of success there is no differece between multiple single transfers and a single multi tranfer, it is impossible to know after the fact
+  - The only difference is in case of denial, because the multi transfer will generate a single operation with all the data, instead of multiple transfers
 
   ## Examples
       iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 3000}})
@@ -115,6 +116,20 @@ defmodule Account.Server do
       ...>  500,
       ...>  %Account.Operation{type: :transfer_out, status: :denied, data: %{amount: 2000, currency: :BRL}}
       ...> } = Account.Server.transfer_out(server_pid, %{amount: 2000, currency: :BRL, recipient_account_id: 2})
+
+
+      iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 500}})
+      iex> recipients_data = [
+      ...>   %{percentage: 0.7, recipient_account_id: 2, other_data: "another extra data"},
+      ...>   %{percentage: 0.2, recipient_account_id: 3, meta_data: "specific meta_data"},
+      ...>   %{percentage: 0.1, recipient_account_id: 4}
+      ...> ]
+      iex> {
+      ...>  :denied,
+      ...>  reason,
+      ...>  500,
+      ...>  %Account.Operation{type: :transfer_out, status: :denied, data: %{amount: 2000, currency: :BRL}}
+      ...> } = Account.Server.transfer_out(server_pid, %{amount: 2000, currency: :BRL, recipients_data: recipients_data})
   """
   def transfer_out(
         account_server,
@@ -212,7 +227,7 @@ defmodule Account.Server do
 
   @spec operations(pid, Date.t()) :: [Account.Operation.t()]
   @doc """
-  Get the list of operations that occur in a specific date
+  Get the list of operations that occurred in a specific date
 
   ## Examples
       iex> server_pid = Account.Cache.server_process(1, %{balances: %{BRL: 2000}})

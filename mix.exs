@@ -25,7 +25,7 @@ defmodule Banking.MixProject do
         assets: "./exdocs_assets",
         groups_for_modules: [
           Business: [Account, Account.Operation, Account.Exchange],
-          Components: [Account.System, Account.ProcessRegistry, Account.Cache, Account.Server],
+          Components: [Account.System, Account.Cache, Account.Server],
           Database: [Database, Database.Worker, Database.ProcessRegistry],
           Metrics: [Metrics.System, Metrics.Scheduler, Metrics.Collector]
         ]

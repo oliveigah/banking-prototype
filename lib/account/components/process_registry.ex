@@ -1,4 +1,5 @@
 defmodule Account.ProcessRegistry do
+  @moduledoc false
   def start_link() do
     Registry.start_link(name: __MODULE__, keys: :unique)
   end

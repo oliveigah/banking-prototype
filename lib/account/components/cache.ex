@@ -2,16 +2,18 @@ defmodule Account.Cache do
   @moduledoc """
   `DynamicSupervisor` that manages all `Account.Server` processes currently running on the system
 
+  - This module is used as an `Account.Server` dicover, always that some part of the system needs to issue requests to an `Account.Server`,
+  it first asks if some process containing the data of a specific account is already running
+
   """
 
   @spec start_link :: :ignore | {:error, any} | {:ok, pid}
-  @doc """
-  Start the `Account.Cache` server
-  """
+  @doc false
   def start_link() do
     DynamicSupervisor.start_link(name: __MODULE__, strategy: :one_for_one)
   end
 
+  @doc false
   def child_spec(_) do
     %{
       id: __MODULE__,
@@ -27,13 +29,10 @@ defmodule Account.Cache do
 
   @spec server_process(number) :: pid
   @doc """
-  Get the `pid` of a `Account.Server` process that is running the account with the given id.
+  Get the `pid` of a `Account.Server` process that is running with the account's data that has the given id.
 
   If the server isn't running it is initialized with the data persisted on database.
-  If no data is persisted the server is initialized with the given args
-
-  - The `args` will be used to fill the account data ONLY IF the given id does not have any data persisted on the database
-  - If the given id already have persited data on database, args will be ignored
+  If no data is already persisted, the server is initialized with the given args
 
   ## Examples
       iex> bob_account_pid = Account.Cache.server_process(1)

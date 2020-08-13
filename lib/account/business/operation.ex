@@ -1,8 +1,8 @@
 defmodule Account.Operation do
   @moduledoc """
-  Pure functional module, used to define new operations that happen over an `Account`
+  Pure functional module, used to define new operations that happen over an `Account` data structure
 
-  By default, any operation initialize with status `:done` and with the current date time
+  By default, any operation is initialized with status `:done` and with the current date time
 
   If you want to change any key value of the operation struct you should pass it new value inside the data parameter
   eg: `Account.Operation.new(:type, %{status: :new_status} )`
@@ -14,7 +14,7 @@ defmodule Account.Operation do
   The `Account.Operation.t()` data structure is composed by 5 values:
   - date_time: The date and time of the operation occurence
   - type: Atom that identifies the type of the operation
-  - data: Customized data about the operation based on the operation type, can be used to pass metadata about the operation
+  - data: Customized data about the operation based on the operation type, can be used to inject metadata about the operation
   - status: Atom that indicates if the operation suceeded or not. [:done, :denied, :refunded]
   - id: Sequential identifier, that identifies the operation only inside an Account context
   """

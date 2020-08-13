@@ -15,7 +15,7 @@ defmodule Database.LoadTest do
     run_write_test()
     |> run_read_test()
 
-    File.rm_rf("./persist/accounts")
+    File.rm_rf("./persist")
   end
 
   def run_write_test do
@@ -25,8 +25,10 @@ defmodule Database.LoadTest do
       Enum.each(1..100_000_000, &loop_write(&1, init_time))
     catch
       index ->
-        operations_per_sec = index / @seconds_to_measure
+        operations_per_sec = round(index / @seconds_to_measure)
         IO.puts("Writes per second: #{operations_per_sec}")
+        seconds_per_operation = round(@seconds_to_measure * 1000000 / index)
+        IO.puts("Average write time: #{seconds_per_operation} μs")
         index
     end
   end
@@ -47,8 +49,10 @@ defmodule Database.LoadTest do
     catch
       {index, cycle} ->
         total_reads = index + cycle * max_index
-        operations_per_sec = total_reads / @seconds_to_measure
+        operations_per_sec = round(total_reads / @seconds_to_measure)
         IO.puts("Reads per second: #{operations_per_sec}")
+        seconds_per_operation = round(@seconds_to_measure * 1000000 / total_reads)
+        IO.puts("Average read time: #{seconds_per_operation} μs")
     end
   end
 
@@ -57,8 +61,7 @@ defmodule Database.LoadTest do
       throw({index, cycle})
     end
 
-    acc = Database.get(index, "accounts")
-    IO.puts(inspect(acc))
+    Database.get(index, "accounts")
     new_index = rem(index, max_index) + 1
     new_cycle = cycle + div(index, max_index)
 
