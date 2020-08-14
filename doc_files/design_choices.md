@@ -8,4 +8,3 @@
 - Lazy account server process initialization
 - Call x Cast on account server data persistance
 - Database workers pooling
-- 

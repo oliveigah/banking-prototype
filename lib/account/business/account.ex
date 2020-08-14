@@ -418,16 +418,16 @@ defmodule Account do
   Get a ordered list of all the operations that happen between 2 dates, ordered by occurence date time
 
   ## Examples
-    iex> init_account = Account.new(%{balances: %{BRL: 1000}})
-    iex> {:ok, new_account, _} = Account.withdraw(init_account, %{amount: 700, currency: :BRL, date_time: ~U[2020-07-24 11:00:00Z]})
-    iex> {:denied, _, new_account, _} = Account.withdraw(new_account, %{amount: 1300, currency: :BRL, date_time: ~U[2020-07-24 12:00:00Z]})
-    iex> {:ok, new_account, _} = Account.deposit(new_account, %{amount: 700, currency: :BRL, date_time: ~U[2020-07-25 11:00:00Z]})
-    iex> {:ok, new_account, _} = Account.deposit(new_account, %{amount: 1800, currency: :BRL, date_time: ~U[2020-07-26 11:00:00Z]})
-    iex> [
-    ...>  %Account.Operation{type: :deposit, data: %{amount: 700, currency: :BRL}, status: :done},
-    ...>  %Account.Operation{type: :withdraw, data: %{amount: 1300, currency: :BRL}, status: :denied},
-    ...>  %Account.Operation{type: :withdraw, data: %{amount: 700, currency: :BRL}, status: :done}
-    ...> ] = Account.operations(new_account, ~D[2020-07-24], ~D[2020-07-25] )
+      iex> init_account = Account.new(%{balances: %{BRL: 1000}})
+      iex> {:ok, new_account, _} = Account.withdraw(init_account, %{amount: 700, currency: :BRL, date_time: ~U[2020-07-24 11:00:00Z]})
+      iex> {:denied, _, new_account, _} = Account.withdraw(new_account, %{amount: 1300, currency: :BRL, date_time: ~U[2020-07-24 12:00:00Z]})
+      iex> {:ok, new_account, _} = Account.deposit(new_account, %{amount: 700, currency: :BRL, date_time: ~U[2020-07-25 11:00:00Z]})
+      iex> {:ok, new_account, _} = Account.deposit(new_account, %{amount: 1800, currency: :BRL, date_time: ~U[2020-07-26 11:00:00Z]})
+      iex> [
+      ...>  %Account.Operation{type: :deposit, data: %{amount: 700, currency: :BRL}, status: :done},
+      ...>  %Account.Operation{type: :withdraw, data: %{amount: 1300, currency: :BRL}, status: :denied},
+      ...>  %Account.Operation{type: :withdraw, data: %{amount: 700, currency: :BRL}, status: :done}
+      ...> ] = Account.operations(new_account, ~D[2020-07-24], ~D[2020-07-25])
   """
   @spec operations(Account.t(), Date.t(), Date.t()) :: [Account.Operation.t()]
   def operations(%Account{} = account, ini_date, fin_date) do
