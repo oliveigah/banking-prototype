@@ -23,7 +23,7 @@ defmodule Account.Http.Account.Operation do
         {404,
          %{
            success: false,
-           message: "Account.Operation not found"
+           message: "Operation not found"
          }}
 
       operation ->

@@ -473,7 +473,7 @@ defmodule Account do
   defp operation_exists(%Account{} = account, operation_id) do
     case Map.fetch(account.operations, operation_id) do
       :error ->
-        {:error, "Account.Operation do not exists"}
+        {:error, "Operation do not exists"}
 
       {:ok, operation} ->
         {:ok, operation}
