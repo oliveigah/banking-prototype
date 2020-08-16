@@ -1,6 +1,9 @@
 defmodule Database.LoadTest do
   @moduledoc false
-
+  @save_data Enum.reduce(1..1000, %{}, fn index, acc ->
+    Map.put(acc, index, Account.new())
+  end)
+  @save_data Account.new()
   @seconds_to_measure 10
   @doc """
   Executes the load test
@@ -38,7 +41,9 @@ defmodule Database.LoadTest do
       throw(index)
     end
 
-    Database.store_sync(index, Account.new(), "accounts")
+
+
+    Database.store_sync(index, @save_data, "accounts")
   end
 
   def run_read_test(max_index) do

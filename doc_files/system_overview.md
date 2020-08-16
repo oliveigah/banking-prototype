@@ -14,11 +14,13 @@ An account has N operations, each one of them has data that identifies what happ
 Requirements: Elixir version >= 1.10
 
 Steps:
-1 - Clone the repository: https://github.com/oliveigah/banking_prototype
+
+1 - Clone the repository: https://github.com/oliveigah/banking_prototype 
+
 2 - On terminal, inside repository folder use the following commands:
-    - `mix deps.get` to install the dependencies
-    - `mix test` to verify if it is all good
-    - `iex -S mix` running the system
+    mix deps.get
+    mix test
+    iex -S mix
 3 - You are good to go! :D
 
 ## Interacting
@@ -115,13 +117,58 @@ All the code that validates if a withdraw operation can be done or not (business
 
 Beyond being "business/test friendly" this patten enable all business rules being reusable by any communication platform. For instance, the HTTP platform implemented on this project is just a mean to an end that is interact with the system. Nothing can be done with a HTTP request and not inside the system interactive shell.
 
-This design is based on "Clean Architecture" and it's know for decoupling business rules (`Account`), use cases (`Account.Server`) and external systems (`Database`, HTTP).
+This design is based on the famous uncle bob's "Clean Architecture" and it's known for decoupling business rules (`Account`), use cases (`Account.Server`) and external systems (`Database`, HTTP).
 
 
 ## Account Server
 
 With it we can understand the system as an API to create operations over an account, the module `Account` is a pure functional module used by server process `Account.Server` to manipulate its own internal state that is an account.
 
-Note that the `Account.Server` is just a representation of an specific account while the `Account` is a module that is used to handle all specific servers accounts, applying the business rules with the given data.
+Note that the `Account.Server` is just a representation of a specific account while the `Account` is a module that is used to handle all specific servers accounts, applying the business rules with the given data.
 
 `Account.Server` implements the interaction between multiple accounts, for instance when a transfer operations happens, the `Account.Server` that holds the data of the sender account, calls the `Account.Server` that holds the data of the recipient account.
+
+## Load Test
+
+To verify the system performance I've built a simple load test script to test the system. It is based on several assumptions as follows:
+
+- Premise: 10.000.000 active clients
+- Hypothese 1: Each client make 5 financial operations per day => 50.000.000 operations per day
+- Hypothese 2: The operations are distributed in a normal fashion, 80% of the operations happens in 20% of the time => 50M x 0.8 / (24 x 60 x 60 x 0.2) ≈ 2.300 rps
+- Hypothese 3: Just 20% of the clients make a new operation earlier than the cache expire time (240 seconds)
+
+To run this test, just execute the following command on terminal inside the project folder:
+    elixir --erl "+P 1000000" -S mix run -e Account.LoadTest.run
+
+The result of this test on my machine is something like this:
+
+![Account Load Test](./assets/exdocs_assets/images/account_load_test_example.png)
+
+My machine specs:
+- Intel® Core™ i7-10750H Comet Lake, 12MB Cache
+- RAM 32GB [2x 16GB - Dual Channel] DDR4 (2666 MHZ)
+- SSD M.2 NVME 500GB - [ 2.000 MB/s ]
+- KDE Neon 5.19
+
+The test will run in batches of 10.000 requests, the numbers on the left represents the current batch being processed. For each batch a set of metrics will be printed on the terminal:
+
+  - Cache miss time: Average time to execute an operation on a account server that is not already running
+  - Cache miss rq/s: Average requests per second if all requests are on account servers that are not already running
+  - Cache hit time: Average time to execute an operation on a server that is already running
+  - Cache miss rq/s: Average requests per second if all requests are on account servers that are already running
+  - Average rps: System's requests per second weighted by the hypothese 3
+  - Approved: Boolean that verify if the average rps is above the minimal defined on hypothese 2
+
+
+
+## Bottlenecks
+
+The biggest bottleneck of the system is the database. Due to the naive file system implementation, the database is not good on a concurrent scenario. In a simple test I've verified that the database operations are responsible for more than 60% of the system latency.
+
+Beyond that, this conversion to binary implementation will never work on scale because it is copying and reading full data all the time. Instead of just add the new data, each new operation on an account forces a rewrite of all account on the database, and every read has to be a full account data read. This will never work in a scenario when all accounts have 1000+ operations registered.
+
+The good news are that both of this problems can be solved with a simple reimplementation of the `Database` module. Making it use some robust database such as postgres or mongodb, and thanks of how the system is architected, this change should be almost frictionless.
+
+## Next Steps
+
+Although this system would work great once the new database solution is implemented, it is still only functional on a single BEAM instance scenario. The next step of this project is to bring this system to be able to run on several BEAM clusters, using global registration instead of the built in `Registry` abstraction.

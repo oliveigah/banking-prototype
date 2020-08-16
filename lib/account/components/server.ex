@@ -6,7 +6,7 @@ defmodule Account.Server do
   use GenServer, restart: :temporary
 
   @database_folder "accounts"
-  @idle_timeout :timer.seconds(30)
+  @idle_timeout :timer.seconds(240)
 
   @impl GenServer
   def init(%{id: account_id} = args) do
