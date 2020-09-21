@@ -15,7 +15,6 @@ defmodule Database do
   Start the server
   """
   def start_link() do
-
     workers_spec_list = Enum.map(1..@workers_count, &worker_spec/1)
 
     [Database.ProcessRegistry.child_spec(nil) | workers_spec_list]
@@ -47,11 +46,11 @@ defmodule Database do
     "#{@base_folder}#{folder}"
   end
 
-  @spec store_async(any(), any(), String.t()) :: :ok
+  @spec store_local_async(any(), any(), String.t()) :: :ok
   @doc """
   Persist data asynchronously under the given folder with the given key
   """
-  def store_async(key, value, folder) do
+  def store_local_async(key, value, folder) do
     final_folder = concatenate_folder(folder)
 
     key
@@ -59,16 +58,41 @@ defmodule Database do
     |> Database.Worker.store_async(key, value, final_folder)
   end
 
-  @spec store_sync(any(), any(), String.t()) :: :ok
+  def store_async(key, value, folder) do
+    nodes = Node.list([:this, :visible])
+
+    Enum.each(
+      nodes,
+      &:rpc.cast(&1, __MODULE__, :store_local_async, [key, value, folder])
+    )
+
+    :ok
+  end
+
+  @spec store_local_sync(any(), any(), String.t()) :: :ok
   @doc """
   Persist data synchronously under the given folder with the given key
   """
-  def store_sync(key, value, folder) do
+  def store_local_sync(key, value, folder) do
     final_folder = concatenate_folder(folder)
 
     key
     |> choose_worker()
     |> Database.Worker.store_sync(key, value, final_folder)
+  end
+
+  def store_sync(key, value, folder) do
+    {_results, fail_nodes} =
+      :rpc.multicall(
+        __MODULE__,
+        :store_local_sync,
+        [key, value, folder],
+        :timer.seconds(5)
+      )
+
+    Enum.each(fail_nodes, &IO.puts("Store failed on node #{&1}"))
+
+    :ok
   end
 
   @spec get(any(), String.t()) :: any() | nil

@@ -27,6 +27,16 @@ defmodule Account.Cache do
     DynamicSupervisor.start_child(__MODULE__, Account.Server.child_spec(server_parameters))
   end
 
+  defp is_already_running?(account_pid) do
+    case Registry.lookup(Account.ProcessRegistry, {Account.Server, account_pid}) do
+      [] ->
+        false
+
+      [{pid, _value}] ->
+        {true, pid}
+    end
+  end
+
   @spec server_process(number) :: pid
   @doc """
   Get the `pid` of a `Account.Server` process that is running with the account's data that has the given id.
@@ -39,7 +49,7 @@ defmodule Account.Cache do
       iex> is_pid(bob_account_pid)
       true
   """
-  def server_process(account_id, args \\ %{}) do
+  def run_server_process(account_id, args \\ %{}) do
     case(is_already_running?(account_id)) do
       false ->
         {:ok, pid} = start_child(account_id, args)
@@ -50,13 +60,24 @@ defmodule Account.Cache do
     end
   end
 
-  defp is_already_running?(account_pid) do
-    case Registry.lookup(Account.ProcessRegistry, {Account.Server, account_pid}) do
-      [] ->
-        false
+  def server_process(account_id, args \\ %{}) do
+    :rpc.call(
+      find_node(account_id),
+      __MODULE__,
+      :run_server_process,
+      [account_id, args]
+    )
+  end
 
-      [{pid, _value}] ->
-        {true, pid}
-    end
+  defp find_node(account_id) do
+    nodes = Enum.sort(Node.list([:this, :visible]))
+
+    node_index =
+      :erlang.phash2(
+        account_id,
+        length(nodes)
+      )
+
+    Enum.at(nodes, node_index)
   end
 end

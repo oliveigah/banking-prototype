@@ -541,14 +541,14 @@ defmodule Account.Server do
   end
 
   defp transfer_to_account_list(
-         %{amount: total_} = data,
+         %{amount: total} = data,
          sender_id,
          [_ | _] = recipients_data
        ) do
     parsed_recipients_data =
       recipients_data
       |> Stream.map(&Map.merge(data, &1))
-      |> Stream.map(&calculate_operation_(&1, total_))
+      |> Stream.map(&calculate_operation(&1, total))
       |> Enum.map(&remove_fields(&1, [:percentage, :recipients_data]))
 
     parsed_recipients_data
@@ -558,9 +558,9 @@ defmodule Account.Server do
     |> Enum.map(&Task.await/1)
   end
 
-  defp calculate_operation_(%{} = data, total_) do
+  defp calculate_operation(%{} = data, total) do
     percentage = Map.get(data, :percentage)
-    Map.put(data, :amount, round(total_ * percentage))
+    Map.put(data, :amount, round(total * percentage))
   end
 
   defp transfer_to_account(%{amount: amount} = data, sender_id, recipient_id) do
