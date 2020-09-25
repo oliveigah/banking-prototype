@@ -11,8 +11,8 @@ defmodule Banking.MixProject do
 
       # Docs
       name: "Banking Prototype",
-      source_url: "https://github.com/oliveigah/banking_prototype",
-      homepage_url: "https://oliveigah.github.io/banking_prototype",
+      source_url: "https://github.com/oliveigah/banking-prototype",
+      homepage_url: "https://oliveigah.github.io/banking-prototype",
       docs: [
         # The main page in the docs
         main: "system_overview",
