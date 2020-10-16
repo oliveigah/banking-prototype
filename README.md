@@ -1,3 +1,3 @@
 # Documentation
 
-https://techfromscratch.com.br/banking_prototype
+https://techfromscratch.com.br/banking-prototype
